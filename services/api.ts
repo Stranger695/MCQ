@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { User, MCQ, Exam, ExamResult, SiteSettings, UserRole } from '../types';
 
@@ -6,8 +5,12 @@ const supabaseUrl = 'https://bvjzuwulwdqubzifpeyo.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2anp1d3Vsd2RxdWJ6aWZwZXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMzc1NDgsImV4cCI6MjA4NjcxMzU0OH0.rivYIgGP4C9B4aDY9jeHizHgfS_8EiwbBkZZGVUqJ50';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Point to the custom backend server for secure logic
+const BACKEND_URL = 'http://localhost:3001/api/v1';
+
 /**
- * Backend Service Layer (Mimics Next.js API)
+ * Backend Service Layer
+ * Interfaces with both Supabase (Data) and Custom Backend (Logic)
  */
 export const BackendAPI = {
   // Profiles
@@ -18,12 +21,18 @@ export const BackendAPI = {
     return await supabase.from('profiles').upsert({
       id: user.id,
       name: user.name,
+      username: user.username,
       email: user.email,
+      phone_number: user.phoneNumber,
       role: user.role,
       status: user.status,
       avatar: user.avatar,
-      joined_at: user.joinedAt
+      joined_at: user.joinedAt,
+      password: user.password 
     });
+  },
+  async deleteProfile(userId: string) {
+    return await supabase.from('profiles').delete().eq('id', userId);
   },
 
   // Exams
@@ -68,25 +77,34 @@ export const BackendAPI = {
     });
   },
 
-  // Results & Grading (Secure Backend Logic)
-  // Added getResults method to fetch exam results
+  // Results & SECURE GRADING
   async getResults() {
     return await supabase.from('results').select('*');
   },
-  async saveResult(res: ExamResult) {
-    return await supabase.from('results').insert({
-      id: res.id,
-      student_id: res.studentId,
-      exam_id: res.examId,
-      score: res.score,
-      total_marks: res.totalMarks,
-      correct_answers: res.correctAnswers,
-      wrong_answers: res.wrongAnswers,
-      time_taken_seconds: res.timeTakenSeconds,
-      status: res.status,
-      completed_at: res.completedAt,
-      certificate_id: res.certificateId
+  async saveResult(res: ExamResult, answers?: Record<string, number>) {
+    // Call custom backend for secure server-side grading
+    const response = await fetch(`${BACKEND_URL}/exams/submit`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-user-id': res.studentId
+      },
+      body: JSON.stringify({
+        studentId: res.studentId,
+        examId: res.examId,
+        answers, // Send answers for server validation
+        timeTakenSeconds: res.timeTakenSeconds
+      })
     });
+    return await response.json();
+  },
+
+  // Analytics
+  async getGlobalStats(userId: string) {
+    const response = await fetch(`${BACKEND_URL}/reports/summary`, {
+      headers: { 'x-user-id': userId }
+    });
+    return await response.json();
   },
 
   // Settings

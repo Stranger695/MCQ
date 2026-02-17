@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../AppContext';
-import { Exam, MCQ, ExamResult, Difficulty } from '../types';
+import { Exam, MCQ, ExamResult, Difficulty, QuestionStatus } from '../types';
 import { 
   Plus, 
   Edit2, 
@@ -24,14 +23,22 @@ import {
   Users, 
   Eye,
   PieChart as PieIcon,
-  Activity
+  Activity,
+  ShieldCheck,
+  ClipboardCheck,
+  Zap
 } from 'lucide-react';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
-export const AuthorExamManagement: React.FC = () => {
+interface AuthorExamManagementProps {
+  onLaunchSimulation: (exam: Exam) => void;
+}
+
+export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLaunchSimulation }) => {
   const { exams, categories, questions, upsertExam, deleteExam, currentUser, results, users } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPreviewActive, setIsPreviewActive] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [viewingStats, setViewingStats] = useState<Exam | null>(null);
   const [qSearchTerm, setQSearchTerm] = useState('');
@@ -58,8 +65,14 @@ export const AuthorExamManagement: React.FC = () => {
   });
 
   const availableCategoryQuestions = useMemo(() => {
-    return questions.filter(q => q.categoryId === formData.categoryId && q.status === 'APPROVED');
+    return questions.filter(q => q.categoryId === formData.categoryId && q.status === QuestionStatus.APPROVED);
   }, [questions, formData.categoryId]);
+
+  const selectedQuestionsData = useMemo(() => {
+    return (formData.questionIds || [])
+      .map(id => questions.find(q => q.id === id))
+      .filter((q): q is MCQ => q !== undefined);
+  }, [formData.questionIds, questions]);
 
   const filteredQuestions = useMemo(() => {
     return availableCategoryQuestions.filter(q => 
@@ -67,8 +80,19 @@ export const AuthorExamManagement: React.FC = () => {
     );
   }, [availableCategoryQuestions, qSearchTerm]);
 
+  const constructExamObject = (): Exam => {
+    return {
+      id: editingExam?.id || Math.random().toString(36).substr(2, 9),
+      createdAt: editingExam?.createdAt || new Date().toISOString(),
+      authorId: currentUser?.id || '',
+      authorName: currentUser?.name || 'Unknown Author',
+      ...(formData as Omit<Exam, 'id' | 'createdAt' | 'authorId' | 'authorName'>)
+    };
+  };
+
   const openModal = (exam: Exam | null = null) => {
     setQSearchTerm('');
+    setIsPreviewActive(false);
     if (exam) {
       setEditingExam(exam);
       setFormData({
@@ -106,21 +130,13 @@ export const AuthorExamManagement: React.FC = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!formData.questionIds || formData.questionIds.length === 0) {
       alert("Please select knowledge fragments.");
       return;
     }
-
-    const examData: Exam = {
-      id: editingExam?.id || Math.random().toString(36).substr(2, 9),
-      createdAt: editingExam?.createdAt || new Date().toISOString(),
-      authorId: currentUser?.id || '',
-      authorName: currentUser?.name || 'Unknown Author',
-      ...(formData as Omit<Exam, 'id' | 'createdAt' | 'authorId' | 'authorName'>)
-    };
-    upsertExam(examData);
+    upsertExam(constructExamObject());
     setIsModalOpen(false);
   };
 
@@ -135,6 +151,80 @@ export const AuthorExamManagement: React.FC = () => {
       examTitle: exam.title
     });
   };
+
+  const DeploymentPreview = () => (
+    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500 pb-10">
+      <div className="bg-indigo-600 rounded-[2.5rem] p-10 text-white overflow-hidden relative shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-6">
+            <div className="p-4 bg-white/20 backdrop-blur-xl rounded-2xl border border-white/20">
+              <ClipboardCheck size={32} />
+            </div>
+            <div>
+              <h4 className="text-2xl font-black tracking-tight">Final Academic Manifest</h4>
+              <p className="text-indigo-100 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Target Cluster: {formData.title}</p>
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={() => onLaunchSimulation(constructExamObject())}
+            className="px-6 py-3 bg-white text-indigo-600 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-indigo-50 transition-all flex items-center gap-3 active:scale-95"
+          >
+            <Zap size={16} /> Simulate Student View
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="bg-black/10 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
+            <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Subject Tier</p>
+            <p className="text-lg font-black text-white">{formData.difficulty} LEVEL</p>
+          </div>
+          <div className="bg-black/10 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
+            <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Duration</p>
+            <p className="text-lg font-black text-white">{formData.durationMinutes}m Session</p>
+          </div>
+          <div className="bg-black/10 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
+            <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Item Pool</p>
+            <p className="text-lg font-black text-white">{formData.questionIds?.length} Clusters</p>
+          </div>
+          <div className="bg-black/10 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
+            <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Pass Target</p>
+            <p className="text-lg font-black text-white">{formData.passPercentage}%</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] px-2 flex items-center gap-3">
+          <Layers size={16} className="text-indigo-600" /> Curated Sequences ({selectedQuestionsData.length})
+        </h5>
+        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+          {selectedQuestionsData.map((q, i) => (
+            <div key={q.id} className="bg-white border-2 border-slate-50 rounded-[2rem] p-8 hover:shadow-xl hover:border-indigo-100 transition-all group">
+              <div className="flex items-start gap-6">
+                <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-xs font-black text-indigo-600 group-hover:scale-110 transition-transform">
+                  {i + 1}
+                </div>
+                <div className="flex-1">
+                  <p className="font-black text-slate-800 text-xl leading-snug mb-6">{q.questionText}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {q.options.map((opt, optIdx) => (
+                      <div key={optIdx} className={`flex items-center gap-4 px-5 py-4 rounded-2xl text-sm font-bold border transition-colors ${optIdx === q.correctOptionIndex ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                        <span className="w-6 h-6 bg-white rounded-lg flex items-center justify-center text-[10px] shadow-sm">{String.fromCharCode(65 + optIdx)}</span>
+                        <span className="flex-1">{opt}</span>
+                        {optIdx === q.correctOptionIndex && <CheckCircle2 size={16} className="text-emerald-500" />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   const ExamStats = ({ exam }: { exam: Exam }) => {
     const examResults = results.filter(r => r.examId === exam.id);
@@ -261,79 +351,101 @@ export const AuthorExamManagement: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-        {myExams.map(exam => (
-          <div key={exam.id} className="bg-white rounded-[3rem] border-2 border-slate-100 shadow-sm overflow-hidden flex flex-col group hover:border-indigo-200 hover:shadow-2xl transition-all duration-500 relative">
-            <div className={`h-2.5 w-full ${exam.isEnabled ? 'bg-green-500' : 'bg-slate-300'}`}></div>
-            
-            <div className="p-10 flex-1 space-y-8">
-              <div className="flex justify-between items-start">
-                <div className="flex flex-col gap-2">
-                  <span className="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-indigo-100 w-fit">
-                    {categories.find(c => c.id === exam.categoryId)?.name}
-                  </span>
-                  <span className={`px-3 py-1 bg-slate-50 text-[8px] font-black uppercase tracking-widest rounded-lg border border-slate-100 w-fit ${
-                    exam.difficulty === Difficulty.EASY ? 'text-emerald-600' :
-                    exam.difficulty === Difficulty.MEDIUM ? 'text-amber-600' : 'text-rose-600'
-                  }`}>
-                    {exam.difficulty} LEVEL
-                  </span>
+        {myExams.map(exam => {
+          const categoryPoolCount = questions.filter(q => q.categoryId === exam.categoryId && q.status === QuestionStatus.APPROVED).length;
+          const selectedCount = exam.questionIds?.length || exam.totalQuestions;
+          const saturationPercentage = categoryPoolCount > 0 ? (selectedCount / categoryPoolCount) * 100 : 0;
+
+          return (
+            <div key={exam.id} className="bg-white rounded-[3rem] border-2 border-slate-100 shadow-sm overflow-hidden flex flex-col group hover:border-indigo-200 hover:shadow-2xl transition-all duration-500 relative">
+              <div className={`h-2.5 w-full ${exam.isEnabled ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+              
+              <div className="p-10 flex-1 space-y-8">
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col gap-2">
+                    <span className="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-indigo-100 w-fit">
+                      {categories.find(c => c.id === exam.categoryId)?.name}
+                    </span>
+                    <span className={`px-3 py-1 bg-slate-50 text-[8px] font-black uppercase tracking-widest rounded-lg border border-slate-100 w-fit ${
+                      exam.difficulty === Difficulty.EASY ? 'text-emerald-600' :
+                      exam.difficulty === Difficulty.MEDIUM ? 'text-amber-600' : 'text-rose-600'
+                    }`}>
+                      {exam.difficulty} LEVEL
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => toggleStatus(exam)}
+                    className={`p-3 rounded-xl transition-all shadow-sm ${exam.isEnabled ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}
+                  >
+                    {exam.isEnabled ? <Play size={20} /> : <Pause size={20} />}
+                  </button>
                 </div>
+
+                <div>
+                  <h4 className="font-black text-slate-800 text-2xl leading-tight group-hover:text-indigo-600 transition-colors">{exam.title}</h4>
+                  <div className="flex items-center gap-2 mt-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authored on {new Date(exam.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                <div className="p-5 bg-slate-50/50 rounded-3xl border border-slate-100 space-y-4">
+                   <div className="flex justify-between items-center">
+                     <div className="flex items-center gap-2">
+                        <Layers size={16} className="text-indigo-500" />
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Question Fragment Selection</span>
+                     </div>
+                     <span className="text-xs font-black text-slate-800">{selectedCount} <span className="text-slate-400 text-[10px]">/</span> {categoryPoolCount}</span>
+                   </div>
+                   <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-indigo-500 transition-all duration-1000 group-hover:bg-indigo-600" 
+                        style={{ width: `${Math.min(100, saturationPercentage)}%` }}
+                      ></div>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-8 gap-x-10 pt-4 border-t border-slate-50">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Clock size={16} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Time</span>
+                    </div>
+                    <p className="text-lg font-black text-slate-700">{exam.durationMinutes}m</p>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Percent size={16} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Pass Rate</span>
+                    </div>
+                    <p className="text-lg font-black text-slate-700">{exam.passPercentage}%</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
                 <button 
-                  onClick={() => toggleStatus(exam)}
-                  className={`p-3 rounded-xl transition-all shadow-sm ${exam.isEnabled ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}
+                  onClick={() => setViewingStats(exam)}
+                  className="flex-1 py-4 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-white border border-indigo-100 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                 >
-                  {exam.isEnabled ? <Play size={20} /> : <Pause size={20} />}
+                  <Activity size={18} /> Analytics
+                </button>
+                <button 
+                  onClick={() => openModal(exam)}
+                  className="p-4 text-slate-400 bg-white border border-slate-100 rounded-2xl hover:text-indigo-600 transition-all shadow-sm"
+                >
+                  <Edit2 size={18} />
+                </button>
+                <button 
+                  onClick={() => initiateDelete(exam)}
+                  className="p-4 text-slate-400 bg-white border border-slate-100 rounded-2xl hover:text-red-600 transition-all shadow-sm"
+                >
+                  <Trash2 size={18} />
                 </button>
               </div>
-
-              <div>
-                <h4 className="font-black text-slate-800 text-2xl leading-tight group-hover:text-indigo-600 transition-colors">{exam.title}</h4>
-                <div className="flex items-center gap-2 mt-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authored on {new Date(exam.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-y-8 gap-x-10 pt-6 border-t border-slate-50">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Clock size={16} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Time</span>
-                  </div>
-                  <p className="text-lg font-black text-slate-700">{exam.durationMinutes}m</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Layers size={16} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Items</span>
-                  </div>
-                  <p className="text-lg font-black text-slate-700">{exam.totalQuestions}</p>
-                </div>
-              </div>
             </div>
-
-            <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4">
-              <button 
-                onClick={() => setViewingStats(exam)}
-                className="flex-1 py-4 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-white border border-indigo-100 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-              >
-                <Activity size={18} /> Analytics
-              </button>
-              <button 
-                onClick={() => openModal(exam)}
-                className="p-4 text-slate-400 bg-white border border-slate-100 rounded-2xl hover:text-indigo-600 transition-all shadow-sm"
-              >
-                <Edit2 size={18} />
-              </button>
-              <button 
-                onClick={() => initiateDelete(exam)}
-                className="p-4 text-slate-400 bg-white border border-slate-100 rounded-2xl hover:text-red-600 transition-all shadow-sm"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {myExams.length === 0 && (
           <div className="col-span-full py-32 text-center bg-white rounded-[4rem] border-4 border-dashed border-slate-100">
@@ -345,124 +457,155 @@ export const AuthorExamManagement: React.FC = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-4xl rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-100">
-            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white relative">
+          <div className="bg-white w-full max-w-6xl rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-100 flex flex-col max-h-[90vh]">
+            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-indigo-600 text-white relative shrink-0">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 pointer-events-none"></div>
-              <h3 className="font-black text-2xl tracking-tight relative z-10">{editingExam ? 'Synchronize Cluster' : 'Provision Exam Cluster'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-colors relative z-10"><X size={24} /></button>
+              <h3 className="font-black text-2xl tracking-tight relative z-10">
+                {isPreviewActive ? 'Educational Audit' : (editingExam ? 'Synchronize Cluster' : 'Provision Exam Cluster')}
+              </h3>
+              <button 
+                onClick={() => isPreviewActive ? setIsPreviewActive(false) : setIsModalOpen(false)} 
+                className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-colors relative z-10 shrink-0"
+              >
+                <X size={24} />
+              </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-10 space-y-10 max-h-[80vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="space-y-8">
-                  <div>
-                    <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Exam Designation</label>
-                    <input
-                      required
-                      className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black text-lg"
-                      value={formData.title}
-                      placeholder="e.g. Molecular Biology Audit"
-                      onChange={e => setFormData({ ...formData, title: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Category</label>
-                      <div className="relative">
-                        <select
-                          className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black text-[10px] uppercase tracking-widest appearance-none"
-                          value={formData.categoryId}
-                          onChange={e => setFormData({ ...formData, categoryId: e.target.value, questionIds: [] })}
-                        >
-                          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
+              {!isPreviewActive ? (
+                <form onSubmit={(e) => { e.preventDefault(); setIsPreviewActive(true); }} className="space-y-10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-8">
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Exam Designation</label>
+                        <input
+                          required
+                          className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black text-lg"
+                          value={formData.title}
+                          placeholder="e.g. Molecular Biology Audit"
+                          onChange={e => setFormData({ ...formData, title: e.target.value })}
+                        />
                       </div>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Complexity</label>
-                      <div className="relative">
-                        <select
-                          className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black text-[10px] uppercase tracking-widest appearance-none"
-                          value={formData.difficulty}
-                          onChange={e => setFormData({ ...formData, difficulty: e.target.value as Difficulty })}
-                        >
-                          {Object.values(Difficulty).map(d => (
-                            <option key={d} value={d}>{d} Level</option>
-                          ))}
-                        </select>
-                        <BarChart className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Mins</label>
-                      <input required type="number" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 transition-all font-black text-lg" value={formData.durationMinutes} onChange={e => setFormData({ ...formData, durationMinutes: parseInt(e.target.value) })} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Pass %</label>
-                      <input required type="number" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 transition-all font-black text-lg" value={formData.passPercentage} onChange={e => setFormData({ ...formData, passPercentage: parseInt(e.target.value) })} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between px-2">
-                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Question Matrix</label>
-                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                      {formData.questionIds?.length} Selected
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-50 rounded-[2.5rem] border border-slate-100 p-6 space-y-6 h-full min-h-[400px] flex flex-col">
-                    <div className="relative group">
-                      <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                      <input 
-                        className="w-full pl-12 pr-6 py-3.5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-sm"
-                        placeholder="Search fragments..."
-                        value={qSearchTerm}
-                        onChange={e => setQSearchTerm(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
-                      {filteredQuestions.map(q => (
-                        <div 
-                          key={q.id}
-                          onClick={() => toggleQuestionSelection(q.id)}
-                          className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${formData.questionIds?.includes(q.id) ? 'bg-white border-indigo-500 shadow-lg' : 'bg-white/50 border-transparent hover:border-indigo-200'}`}
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className={`w-8 h-8 rounded-lg shrink-0 flex items-center justify-center transition-all ${formData.questionIds?.includes(q.id) ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-300'}`}>
-                              {formData.questionIds?.includes(q.id) ? <CheckCircle2 size={16} /> : <div className="w-4 h-4 border-2 border-slate-200 rounded"></div>}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[11px] font-bold leading-snug line-clamp-2 ${formData.questionIds?.includes(q.id) ? 'text-indigo-900' : 'text-slate-600'}`}>
-                                {q.questionText}
-                              </p>
-                              <div className="flex items-center gap-2 mt-2">
-                                <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">{q.difficulty}</span>
-                              </div>
-                            </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Category</label>
+                          <div className="relative">
+                            <select
+                              className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black text-[10px] uppercase tracking-widest appearance-none"
+                              value={formData.categoryId}
+                              onChange={e => setFormData({ ...formData, categoryId: e.target.value, questionIds: [] })}
+                            >
+                              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                           </div>
                         </div>
-                      ))}
-                      {filteredQuestions.length === 0 && <p className="text-center py-20 text-[10px] font-black text-slate-300 uppercase">Null matches</p>}
+                        <div>
+                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Complexity</label>
+                          <div className="relative">
+                            <select
+                              className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black text-[10px] uppercase tracking-widest appearance-none"
+                              value={formData.difficulty}
+                              onChange={e => setFormData({ ...formData, difficulty: e.target.value as Difficulty })}
+                            >
+                              {Object.values(Difficulty).map(d => (
+                                <option key={d} value={d}>{d} Level</option>
+                              ))}
+                            </select>
+                            <BarChart className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Mins</label>
+                          <input required type="number" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 transition-all font-black text-lg" value={formData.durationMinutes} onChange={e => setFormData({ ...formData, durationMinutes: parseInt(e.target.value) })} />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Pass %</label>
+                          <input required type="number" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 transition-all font-black text-lg" value={formData.passPercentage} onChange={e => setFormData({ ...formData, passPercentage: parseInt(e.target.value) })} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between px-2">
+                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Question Matrix</label>
+                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                          {formData.questionIds?.length} Selected
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-[2.5rem] border border-slate-100 p-6 space-y-6 min-h-[400px] flex flex-col">
+                        <div className="relative group">
+                          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                          <input 
+                            className="w-full pl-12 pr-6 py-3.5 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-sm"
+                            placeholder="Search fragments..."
+                            value={qSearchTerm}
+                            onChange={e => setQSearchTerm(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar max-h-[300px]">
+                          {filteredQuestions.map(q => (
+                            <div 
+                              key={q.id}
+                              onClick={() => toggleQuestionSelection(q.id)}
+                              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${formData.questionIds?.includes(q.id) ? 'bg-white border-indigo-500 shadow-lg' : 'bg-white/50 border-transparent hover:border-indigo-200'}`}
+                            >
+                              <div className="flex items-start gap-4">
+                                <div className={`w-8 h-8 rounded-lg shrink-0 flex items-center justify-center transition-all ${formData.questionIds?.includes(q.id) ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-300'}`}>
+                                  {formData.questionIds?.includes(q.id) ? <CheckCircle2 size={16} /> : <div className="w-4 h-4 border-2 border-slate-200 rounded"></div>}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-[11px] font-bold leading-snug line-clamp-2 ${formData.questionIds?.includes(q.id) ? 'text-indigo-900' : 'text-slate-600'}`}>
+                                    {q.questionText}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">{q.difficulty}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {filteredQuestions.length === 0 && <p className="text-center py-20 text-[10px] font-black text-slate-300 uppercase">Null matches</p>}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="flex gap-6 pt-10 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-6 font-black uppercase tracking-widest text-[10px] text-slate-400 hover:text-slate-800 transition-all">Discard Build</button>
-                <button type="submit" className="flex-1 py-6 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-3xl hover:bg-indigo-700 shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4">
-                  <CheckCircle2 size={20} /> Deploy To Registry
-                </button>
-              </div>
-            </form>
+                  <div className="flex gap-6 pt-10 border-t border-slate-100 shrink-0">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-6 font-black uppercase tracking-widest text-[10px] text-slate-400 hover:text-slate-800 transition-all">Discard Build</button>
+                    <button type="submit" className="flex-1 py-6 bg-indigo-50 text-indigo-600 font-black uppercase tracking-widest text-[10px] rounded-[2rem] hover:bg-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-4">
+                      <Eye size={20} /> Preview Protocol
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-10">
+                  <DeploymentPreview />
+                  <div className="flex gap-6 pt-10 border-t border-slate-100 shrink-0">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsPreviewActive(false)}
+                      className="flex-1 py-6 font-black uppercase tracking-widest text-[10px] text-slate-400 hover:text-slate-800 transition-all flex items-center justify-center gap-3"
+                    >
+                      <Edit2 size={18} /> Modify Selections
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => handleSubmit()}
+                      className="flex-1 py-6 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-[2rem] hover:bg-indigo-700 shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4"
+                    >
+                      <ShieldCheck size={20} /> Publish Cluster
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

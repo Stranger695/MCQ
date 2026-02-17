@@ -1,4 +1,3 @@
-
 export enum UserRole {
   SUPER_ADMIN = 'SUPER_ADMIN',
   ADMIN = 'ADMIN',
@@ -27,11 +26,14 @@ export enum Difficulty {
 export interface User {
   id: string;
   name: string;
+  username?: string;
   email: string;
+  phoneNumber?: string;
   role: UserRole;
   status: UserStatus;
   avatar?: string;
   joinedAt: string;
+  password?: string; // Added to support credential management
 }
 
 export interface MCQ {

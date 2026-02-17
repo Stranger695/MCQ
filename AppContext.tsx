@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, MCQ, Category, Exam, ExamResult, SiteSettings, UserRole, QuestionStatus, UserStatus, Difficulty, Notification } from './types';
 import { INITIAL_USERS, INITIAL_CATEGORIES, INITIAL_QUESTIONS, INITIAL_EXAMS, INITIAL_SETTINGS } from './constants';
@@ -57,10 +56,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [settings, setSettings] = useState<SiteSettings>(INITIAL_SETTINGS);
 
   useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('eq_current_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('eq_current_user');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        // Fetching all data including results which now has a corresponding getResults method
         const [
           { data: profiles },
           { data: cats },
@@ -71,7 +77,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           { data: notifs }
         ] = await Promise.all([
           BackendAPI.getProfiles(),
-          // Assume categories are static or add to BackendAPI if needed
           Promise.resolve({ data: INITIAL_CATEGORIES }), 
           BackendAPI.getQuestions(),
           BackendAPI.getExams(),
@@ -80,17 +85,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           BackendAPI.getNotifications()
         ]);
 
-        if (profiles && profiles.length > 0) {
-           setUsers(profiles.map(p => ({
-             id: p.id,
-             name: p.name,
-             email: p.email,
-             role: p.role as UserRole,
-             status: p.status as UserStatus,
-             avatar: p.avatar,
-             joinedAt: p.joined_at
-           })));
-        }
+        // Merge Initial Users with DB Profiles to ensure demo accounts always exist
+        const dbUsers = (profiles || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          username: p.username,
+          email: p.email,
+          phoneNumber: p.phone_number,
+          role: p.role as UserRole,
+          status: p.status as UserStatus,
+          avatar: p.avatar,
+          joinedAt: p.joined_at,
+          password: p.password
+        }));
+
+        const mergedUsers = [...INITIAL_USERS];
+        dbUsers.forEach(dbU => {
+          const index = mergedUsers.findIndex(u => u.email.toLowerCase() === dbU.email.toLowerCase());
+          if (index !== -1) {
+            mergedUsers[index] = { ...mergedUsers[index], ...dbU };
+          } else {
+            mergedUsers.push(dbU);
+          }
+        });
+        setUsers(mergedUsers);
         
         if (qs && qs.length > 0) {
           setQuestions(qs.map(q => ({
@@ -109,26 +127,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         
         if (exms && exms.length > 0) {
-          // Mapping Supabase snake_case fields to the Exam interface camelCase fields
           setExams(exms.map(e => ({
             id: e.id,
             title: e.title,
             categoryId: e.category_id,
             authorId: e.author_id,
             authorName: e.author_name,
-            durationMinutes: e.duration_minutes,
-            totalQuestions: e.total_questions,
-            questionIds: e.question_ids,
-            passPercentage: e.pass_percentage,
-            negativeMarking: e.negative_marking,
-            isEnabled: e.is_enabled,
+            duration_minutes: e.duration_minutes,
+            total_questions: e.total_questions,
+            question_ids: e.question_ids,
+            pass_percentage: e.pass_percentage,
+            negative_marking: e.negative_marking,
+            is_enabled: e.is_enabled,
             difficulty: e.difficulty as Difficulty,
             createdAt: e.created_at
           })));
         }
 
         if (res && res.length > 0) {
-          // Mapping Supabase snake_case fields to the ExamResult interface camelCase fields
           setResults(res.map(r => ({
             id: r.id,
             studentId: r.student_id,
@@ -156,7 +172,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           })));
         }
 
-        if (stngs) setSettings(stngs.settings);
+        if (stngs?.settings) setSettings(stngs.settings);
       } catch (err) {
         console.error('Data Sync Error:', err);
       } finally {
@@ -175,7 +191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteUser = async (userId: string) => {
     if (userId === currentUser?.id) return;
     setUsers(prev => prev.filter(u => u.id !== userId));
-    // Assume deleteProfile exists in BackendAPI or similar
+    await BackendAPI.deleteProfile(userId);
   };
 
   const upsertExam = async (exam: Exam) => {

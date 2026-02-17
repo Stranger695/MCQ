@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../AppContext';
 import { MCQ, QuestionStatus, Difficulty } from '../types';
@@ -21,7 +20,9 @@ import {
   Filter,
   Layers,
   Sparkles,
-  Loader2
+  Loader2,
+  GripVertical,
+  CheckCircle2
 } from 'lucide-react';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { generateAIQuestions } from '../services/gemini';
@@ -30,6 +31,7 @@ export const QuestionForm: React.FC<{ initialData?: MCQ | null; onComplete: () =
   const { categories, upsertQuestion, currentUser } = useApp();
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   
   const [formData, setFormData] = useState({
     categoryId: categories[0]?.id || '',
@@ -94,6 +96,39 @@ export const QuestionForm: React.FC<{ initialData?: MCQ | null; onComplete: () =
       else if (index < prev.correctOptionIndex) newCorrectIndex = prev.correctOptionIndex - 1;
       return { ...prev, options: newOptions, correctOptionIndex: newCorrectIndex };
     });
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (index: number) => {
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newOptions = [...formData.options];
+    const [movedItem] = newOptions.splice(draggedIndex, 1);
+    newOptions.splice(index, 0, movedItem);
+
+    // Update correct option index
+    let newCorrectIndex = formData.correctOptionIndex;
+    if (draggedIndex === formData.correctOptionIndex) {
+      newCorrectIndex = index;
+    } else if (draggedIndex < formData.correctOptionIndex && index >= formData.correctOptionIndex) {
+      newCorrectIndex = formData.correctOptionIndex - 1;
+    } else if (draggedIndex > formData.correctOptionIndex && index <= formData.correctOptionIndex) {
+      newCorrectIndex = formData.correctOptionIndex + 1;
+    }
+
+    setFormData({
+      ...formData,
+      options: newOptions,
+      correctOptionIndex: newCorrectIndex
+    });
+    setDraggedIndex(null);
   };
 
   const validate = (): string[] => {
@@ -200,30 +235,55 @@ export const QuestionForm: React.FC<{ initialData?: MCQ | null; onComplete: () =
 
         <div className="space-y-6">
           <div className="flex items-center justify-between px-2">
-            <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">Options</label>
-            <button type="button" onClick={addOption} className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full">Add Option</button>
+            <div>
+              <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">Options Registry</label>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Drag handle to reorder • Click label to mark correct</p>
+            </div>
+            <button type="button" onClick={addOption} className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full border border-indigo-100 hover:bg-indigo-100 transition-colors">Add Option Node</button>
           </div>
+          
           <div className="space-y-4">
             {formData.options.map((opt, i) => (
-              <div key={i} className="flex items-center gap-4">
+              <div 
+                key={i} 
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={() => handleDrop(i)}
+                className={`flex items-center gap-4 p-2 rounded-[1.75rem] border-2 transition-all ${draggedIndex === i ? 'opacity-40 border-dashed border-indigo-300 scale-95' : 'border-transparent'}`}
+              >
+                <div className="cursor-grab active:cursor-grabbing p-2 text-slate-300 hover:text-indigo-600 transition-colors">
+                  <GripVertical size={20} />
+                </div>
+                
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, correctOptionIndex: i })}
-                  className={`w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl font-black text-lg transition-all ${formData.correctOptionIndex === i ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`}
+                  className={`w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl font-black text-lg transition-all relative group ${formData.correctOptionIndex === i ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-100' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
                 >
                   {String.fromCharCode(65 + i)}
+                  {formData.correctOptionIndex === i && (
+                    <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
+                      <CheckCircle2 size={12} className="text-emerald-600" />
+                    </div>
+                  )}
                 </button>
+                
                 <input
-                  className="flex-1 px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-[1.25rem] outline-none focus:ring-4 focus:ring-indigo-50 font-black"
+                  className={`flex-1 px-6 py-4 bg-slate-50 border-2 rounded-[1.25rem] outline-none focus:ring-4 focus:ring-indigo-50 font-black transition-all ${formData.correctOptionIndex === i ? 'border-emerald-100 bg-emerald-50/30' : 'border-slate-100 focus:border-indigo-600'}`}
                   value={opt}
+                  placeholder={`Enter Option ${String.fromCharCode(65 + i)}`}
                   onChange={e => {
                     const newOpts = [...formData.options];
                     newOpts[i] = e.target.value;
                     setFormData({ ...formData, options: newOpts });
                   }}
                 />
+                
                 {formData.options.length > 4 && (
-                  <button type="button" onClick={() => removeOption(i)} className="text-slate-300 hover:text-red-500"><MinusCircle size={20} /></button>
+                  <button type="button" onClick={() => removeOption(i)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                    <MinusCircle size={20} />
+                  </button>
                 )}
               </div>
             ))}
@@ -231,17 +291,31 @@ export const QuestionForm: React.FC<{ initialData?: MCQ | null; onComplete: () =
         </div>
 
         <div className="space-y-3">
-          <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">Explanation</label>
+          <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">Rationale & Explanation</label>
           <textarea
-            className="w-full p-8 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] outline-none focus:ring-8 focus:ring-indigo-50 min-h-[140px]"
+            className="w-full p-8 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] outline-none focus:ring-8 focus:ring-indigo-50 min-h-[140px] font-medium text-slate-600"
             value={formData.explanation}
+            placeholder="Provide a logical justification for the correct answer..."
             onChange={e => setFormData({ ...formData, explanation: e.target.value })}
           />
         </div>
 
+        {formErrors.length > 0 && touched && (
+          <div className="p-6 bg-rose-50 rounded-3xl border border-rose-100 space-y-2">
+            <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-2">
+              <AlertTriangle size={14} /> Validation Protocol Failure
+            </p>
+            <ul className="list-disc list-inside text-[10px] font-bold text-rose-500/80 uppercase tracking-wider">
+              {formErrors.map((err, i) => <li key={i}>{err}</li>)}
+            </ul>
+          </div>
+        )}
+
         <div className="flex justify-end gap-6 pt-10 border-t border-slate-100">
-           <button type="button" onClick={onComplete} className="px-10 py-4 text-slate-400 font-black uppercase text-[11px]">Discard</button>
-           <button type="submit" className="px-12 py-4 bg-indigo-600 text-white font-black uppercase text-[11px] rounded-2xl">Save Asset</button>
+           <button type="button" onClick={onComplete} className="px-10 py-4 text-slate-400 font-black uppercase text-[11px] hover:text-slate-800 transition-colors">Discard Draft</button>
+           <button type="submit" className="px-12 py-4 bg-indigo-600 text-white font-black uppercase text-[11px] rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center gap-3">
+             <Save size={18} /> Deploy Asset
+           </button>
         </div>
       </form>
     </div>

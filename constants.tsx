@@ -12,7 +12,7 @@ export const INITIAL_USERS = [
   },
   {
     id: 'u2',
-    name: 'Admin User',
+    name: 'Admin',
     email: 'admin@eduquest.com',
     role: UserRole.ADMIN,
     status: UserStatus.ACTIVE,
@@ -20,7 +20,7 @@ export const INITIAL_USERS = [
   },
   {
     id: 'u3',
-    name: 'Author Jane',
+    name: 'Author',
     email: 'author@eduquest.com',
     role: UserRole.AUTHOR,
     status: UserStatus.ACTIVE,
@@ -28,7 +28,7 @@ export const INITIAL_USERS = [
   },
   {
     id: 'u4',
-    name: 'Student Mark',
+    name: 'Student',
     email: 'student@eduquest.com',
     role: UserRole.STUDENT,
     status: UserStatus.ACTIVE,
@@ -46,7 +46,7 @@ export const INITIAL_QUESTIONS = [
   {
     id: 'q1',
     authorId: 'u3',
-    authorName: 'Author Jane',
+    authorName: 'Author',
     categoryId: 'c1',
     questionText: 'What does CPU stand for?',
     options: ['Central Process Unit', 'Central Processing Unit', 'Computer Personal Unit', 'Central Processor Utility'],
@@ -59,7 +59,7 @@ export const INITIAL_QUESTIONS = [
   {
     id: 'q2',
     authorId: 'u3',
-    authorName: 'Author Jane',
+    authorName: 'Author',
     categoryId: 'c1',
     questionText: 'Which data structure uses LIFO principle?',
     options: ['Queue', 'Linked List', 'Stack', 'Tree'],
@@ -67,6 +67,58 @@ export const INITIAL_QUESTIONS = [
     explanation: 'Stacks use Last-In-First-Out (LIFO) order.',
     difficulty: Difficulty.MEDIUM,
     status: QuestionStatus.APPROVED,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'q3',
+    authorId: 'u3',
+    authorName: 'Author',
+    categoryId: 'c2',
+    questionText: 'What is the value of Pi to two decimal places?',
+    options: ['3.12', '3.14', '3.16', '3.18'],
+    correctOptionIndex: 1,
+    explanation: 'Pi is approximately 3.14159...',
+    difficulty: Difficulty.EASY,
+    status: QuestionStatus.APPROVED,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'q4',
+    authorId: 'u3',
+    authorName: 'Author',
+    categoryId: 'c2',
+    questionText: 'Which of these is a prime number?',
+    options: ['4', '6', '9', '11'],
+    correctOptionIndex: 3,
+    explanation: '11 is only divisible by 1 and itself.',
+    difficulty: Difficulty.MEDIUM,
+    status: QuestionStatus.PENDING,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'q5',
+    authorId: 'u3',
+    authorName: 'Author',
+    categoryId: 'c1',
+    questionText: 'What is the time complexity of binary search?',
+    options: ['O(n)', 'O(log n)', 'O(n^2)', 'O(1)'],
+    correctOptionIndex: 1,
+    explanation: 'Binary search halves the search space in each step.',
+    difficulty: Difficulty.HARD,
+    status: QuestionStatus.APPROVED,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'q6',
+    authorId: 'u3',
+    authorName: 'Author',
+    categoryId: 'c3',
+    questionText: 'Who was the first person to walk on the moon?',
+    options: ['Buzz Aldrin', 'Neil Armstrong', 'Yuri Gagarin', 'Michael Collins'],
+    correctOptionIndex: 1,
+    explanation: 'Neil Armstrong walked on the moon in 1969.',
+    difficulty: Difficulty.EASY,
+    status: QuestionStatus.REJECTED,
     createdAt: new Date().toISOString()
   }
 ];
@@ -77,7 +129,7 @@ export const INITIAL_EXAMS: Exam[] = [
     title: 'CS Fundamentals Quiz',
     categoryId: 'c1',
     authorId: 'u2',
-    authorName: 'Admin User',
+    authorName: 'Admin',
     durationMinutes: 10,
     totalQuestions: 2,
     questionIds: ['q1', 'q2'],

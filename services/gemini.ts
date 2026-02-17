@@ -1,14 +1,13 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Difficulty, MCQ } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
  * AI Question Generator
  * Mimics a backend microservice that produces valid knowledge fragments.
  */
 export async function generateAIQuestions(topic: string, difficulty: Difficulty, count: number = 5): Promise<Partial<MCQ>[]> {
+  // Always initialize GoogleGenAI inside functions to ensure fresh API key usage
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
     contents: `Generate ${count} multiple choice questions about "${topic}" at a "${difficulty}" difficulty level. 
@@ -27,7 +26,7 @@ export async function generateAIQuestions(topic: string, difficulty: Difficulty,
           properties: {
             questionText: { type: Type.STRING },
             options: { type: Type.ARRAY, items: { type: Type.STRING } },
-            correctOptionIndex: { type: Type.NUMBER },
+            correctOptionIndex: { type: Type.INTEGER },
             explanation: { type: Type.STRING },
             difficulty: { type: Type.STRING }
           },
@@ -38,6 +37,7 @@ export async function generateAIQuestions(topic: string, difficulty: Difficulty,
   });
 
   try {
+    // Access .text property directly as per guidelines
     return JSON.parse(response.text || "[]");
   } catch (e) {
     console.error("AI Generation Parse Error", e);
@@ -50,6 +50,8 @@ export async function generateAIQuestions(topic: string, difficulty: Difficulty,
  * Analyzes attempt metadata to detect potential academic integrity violations.
  */
 export async function analyzeProctoringLogs(attemptData: any): Promise<string> {
+  // Always initialize GoogleGenAI inside functions to ensure fresh API key usage
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Analyze the following exam proctoring data and provide a concise security summary (2 sentences max). 
@@ -57,5 +59,6 @@ export async function analyzeProctoringLogs(attemptData: any): Promise<string> {
                Data: ${JSON.stringify(attemptData)}`,
   });
 
+  // Access .text property directly as per guidelines
   return response.text || "No analysis available.";
 }

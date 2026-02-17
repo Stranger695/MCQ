@@ -134,6 +134,8 @@ export const INITIAL_EXAMS: Exam[] = [
     totalQuestions: 2,
     questionIds: ['q1', 'q2'],
     passPercentage: 50,
+    // Fix: Added missing marksPerQuestion property which is required in the Exam interface
+    marksPerQuestion: 1.0,
     negativeMarking: 0.25,
     difficulty: Difficulty.EASY,
     isEnabled: true,

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../AppContext';
 import { UserRole } from '../types';
@@ -27,7 +28,8 @@ import {
   ClipboardList,
   Bell,
   Clock,
-  PlusCircle
+  PlusCircle,
+  HelpCircle
 } from 'lucide-react';
 
 const SocialIcon = ({ platform, size = 18 }: { platform: string; size?: number }) => {
@@ -74,7 +76,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView }) 
       { id: 'reports', label: 'Reports & Analytics', icon: FileBarChart2 },
       { id: 'categories', label: 'Categories', icon: Layers },
       { id: 'exams', label: 'Exam Hub', icon: BookOpen },
-      { id: 'questions', label: 'Question Moderation', icon: CheckCircle },
+      { id: 'questions', label: 'Question', icon: HelpCircle },
       { id: 'certificates', label: 'Certificates', icon: Award },
       { id: 'my-exams', label: 'My Exams', icon: ClipboardList },
       { id: 'my-questions', label: 'My Questions', icon: FileText },
@@ -87,7 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView }) 
       { id: 'users', label: 'Authors & Students', icon: Users },
       { id: 'categories', label: 'Categories', icon: Layers },
       { id: 'exams', label: 'Exam Management', icon: BookOpen },
-      { id: 'questions', label: 'Review Questions', icon: CheckCircle },
+      { id: 'questions', label: 'Question', icon: HelpCircle },
       { id: 'certificates', label: 'Manage Certificates', icon: Award },
       { id: 'reports', label: 'Reports & Analytics', icon: FileBarChart2 },
       { id: 'profile', label: 'My Profile', icon: UserIcon }
@@ -201,7 +203,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView }) 
                      <div className="max-h-[60vh] md:max-h-96 overflow-y-auto">
                         {myNotifs.length > 0 ? myNotifs.map(notif => (
                           <div key={notif.id} onClick={() => !notif.isRead && markNotificationRead(notif.id)} className={`p-4 md:p-5 border-b border-slate-50 cursor-pointer ${notif.isRead ? 'bg-white opacity-60' : 'bg-indigo-50/30'}`}>
-                            <p className="text-xs md:text-sm font-black mb-1">{notif.title}</p>
+                            <p className="text-sm font-black mb-1">{notif.title}</p>
                             <p className="text-[10px] md:text-xs text-slate-500">{notif.message}</p>
                           </div>
                         )) : <div className="p-10 text-center text-slate-300"><p className="text-[10px] font-black uppercase">No Alerts</p></div>}

@@ -11,11 +11,11 @@ import {
   Layers, 
   Menu, 
   X, 
-  Camera, 
   ShieldCheck,
   UserCheck,
   Eye,
-  ShieldAlert
+  ShieldAlert,
+  Activity
 } from 'lucide-react';
 
 interface ExamSessionProps {
@@ -32,8 +32,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
   const [timeLeft, setTimeLeft] = useState(exam.durationMinutes * 60);
   const [examQuestions, setExamQuestions] = useState<MCQ[]>([]);
   const [isNavOpen, setIsNavOpen] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [proctorStatus, setProctorStatus] = useState(isSandbox ? 'Simulation Active' : 'Initializing AI...');
+  const [sessionStatus, setSessionStatus] = useState(isSandbox ? 'Simulation Active' : 'Secure Session Active');
 
   useEffect(() => {
     let selected: MCQ[] = [];
@@ -49,46 +48,41 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
     setExamQuestions(selected);
   }, [exam, questions]);
 
-  useEffect(() => {
-    if (isSandbox) return; // Skip camera in simulation
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) videoRef.current.srcObject = stream;
-        setProctorStatus('Active Monitoring');
-      } catch (err) {
-        setProctorStatus('Camera Offline');
-      }
-    }
-    startCamera();
-    return () => {
-      const stream = videoRef.current?.srcObject as MediaStream;
-      stream?.getTracks().forEach(track => track.stop());
-    };
-  }, [isSandbox]);
-
   const finishExam = useCallback(() => {
     if (isSandbox) {
       onCancel(); // Just exit simulation
       return;
     }
     if (!currentUser) return;
-    let correct = 0;
-    let wrong = 0;
+    let correctCount = 0;
+    let wrongCount = 0;
     examQuestions.forEach(q => {
-      if (answers[q.id] === q.correctOptionIndex) correct++;
-      else if (answers[q.id] !== undefined) wrong++;
+      if (answers[q.id] === q.correctOptionIndex) {
+        correctCount++;
+      } else if (answers[q.id] !== undefined) {
+        wrongCount++;
+      }
     });
-    const score = Math.max(0, correct - (wrong * exam.negativeMarking));
-    const status = (score / examQuestions.length) * 100 >= exam.passPercentage ? 'PASS' : 'FAIL';
+
+    const marksPerQ = exam.marksPerQuestion || 1.0;
+    const penaltyPerQ = exam.negativeMarking || 0.0;
+    
+    // Total Score = (Correct Answers * Marks Per Correct) - (Wrong Answers * Penalty)
+    const rawScore = (correctCount * marksPerQ) - (wrongCount * penaltyPerQ);
+    const score = Math.max(0, rawScore);
+    
+    const totalPossibleMarks = examQuestions.length * marksPerQ;
+    const percentage = totalPossibleMarks > 0 ? (score / totalPossibleMarks) * 100 : 0;
+    const status = percentage >= exam.passPercentage ? 'PASS' : 'FAIL';
+
     onComplete({
       id: Math.random().toString(36).substr(2, 9),
       studentId: currentUser.id,
       examId: exam.id,
       score,
-      totalMarks: examQuestions.length,
-      correctAnswers: correct,
-      wrongAnswers: wrong,
+      totalMarks: Math.round(totalPossibleMarks), // Representing the 'max marks' scale
+      correctAnswers: correctCount,
+      wrongAnswers: wrongCount,
       timeTakenSeconds: (exam.durationMinutes * 60) - timeLeft,
       status,
       completedAt: new Date().toISOString(),
@@ -123,26 +117,28 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
     <div className="flex flex-col h-full bg-white">
       <div className="p-4 md:p-6 border-b border-slate-100">
         <div className="relative overflow-hidden rounded-[1.5rem] bg-slate-900 aspect-video mb-3 md:mb-4 shadow-xl border-2 border-slate-800 flex items-center justify-center">
-          {isSandbox ? (
-            <div className="text-center p-4">
-              <ShieldAlert className="text-indigo-400 mx-auto mb-2" size={32} />
-              <span className="text-[8px] font-black text-indigo-200 uppercase tracking-widest block">Sandbox Environment</span>
-              <span className="text-[7px] text-indigo-400/60 uppercase block">Proctoring Disabled</span>
-            </div>
-          ) : (
-            <>
-              <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover opacity-80" />
-              <div className="absolute top-2 left-2 flex items-center gap-1.5 px-1.5 py-0.5 bg-black/40 backdrop-blur-md rounded-md">
-                 <div className={`w-1 h-1 rounded-full ${proctorStatus.includes('Offline') ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></div>
-                 <span className="text-[7px] font-black text-white uppercase tracking-widest">SECURE FEED</span>
-              </div>
-            </>
-          )}
+          <div className="text-center p-4">
+            {isSandbox ? (
+              <>
+                <ShieldAlert className="text-indigo-400 mx-auto mb-2" size={32} />
+                <span className="text-[8px] font-black text-indigo-200 uppercase tracking-widest block">Sandbox Environment</span>
+                <span className="text-[7px] text-indigo-400/60 uppercase block">Local Data Only</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="text-emerald-400 mx-auto mb-2" size={32} />
+                <span className="text-[8px] font-black text-emerald-200 uppercase tracking-widest block">Secure Environment</span>
+                <span className="text-[7px] text-emerald-400/60 uppercase block">Session Encrypted</span>
+              </>
+            )}
+          </div>
         </div>
         <div className="flex items-center justify-between px-1">
            <div className="flex flex-col">
               <span className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest">Protocol status</span>
-              <span className={`text-[9px] md:text-[10px] font-black uppercase ${proctorStatus.includes('Offline') ? 'text-red-500' : 'text-indigo-600'}`}>{proctorStatus}</span>
+              <span className={`text-[9px] md:text-[10px] font-black uppercase ${isSandbox ? 'text-indigo-600' : 'text-emerald-600'}`}>
+                {sessionStatus}
+              </span>
            </div>
         </div>
       </div>
@@ -165,6 +161,24 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
                 {i + 1}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div>
+           <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+            <Activity size={14} className="text-indigo-600" /> PROGRESS
+          </h4>
+          <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[8px] font-black text-slate-400 uppercase">Completion</span>
+              <span className="text-[10px] font-black text-slate-800">{Math.round((Object.keys(answers).length / examQuestions.length) * 100)}%</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+               <div 
+                 className="h-full bg-indigo-600 transition-all duration-500" 
+                 style={{ width: `${(Object.keys(answers).length / examQuestions.length) * 100}%` }}
+               />
+            </div>
           </div>
         </div>
       </div>

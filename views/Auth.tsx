@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
-// Initialize Supabase Client
 const supabaseUrl = 'https://bvjzuwulwdqubzifpeyo.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2anp1d3Vsd2RxdWJ6aWZwZXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMzc1NDgsImV4cCI6MjA4NjcxMzU0OH0.rivYIgGP4C9B4aDY9jeHizHgfS_8EiwbBkZZGVUqJ50';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -29,7 +28,6 @@ const Auth: React.FC<AuthProps> = ({ onGoBack }) => {
   const { users, setCurrentUser, setUsers, settings } = useApp();
   const [isLogin, setIsLogin] = useState(true);
   
-  // Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -40,7 +38,6 @@ const Auth: React.FC<AuthProps> = ({ onGoBack }) => {
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Password Strength Logic
   const passwordStrength = useMemo(() => {
     if (!password) return 0;
     let score = 0;
@@ -67,8 +64,12 @@ const Auth: React.FC<AuthProps> = ({ onGoBack }) => {
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     
     if (user) {
-      if (password !== '123' && !isLogin) { // Only check '123' for demo users
-        setError('Invalid credentials.');
+      // Allow '123' for demo accounts, otherwise check stored password
+      const isDemoAccount = ['u1', 'u2', 'u3', 'u4'].includes(user.id);
+      const isCorrectPassword = isDemoAccount ? password === '123' : (user.password === password);
+
+      if (!isCorrectPassword) {
+        setError('Invalid credentials provided to authorization gate.');
         return;
       }
 
@@ -110,6 +111,7 @@ const Auth: React.FC<AuthProps> = ({ onGoBack }) => {
       username: username.toLowerCase(),
       email: email.toLowerCase(),
       phoneNumber,
+      password,
       role: UserRole.STUDENT,
       status: UserStatus.ACTIVE,
       joinedAt: new Date().toISOString()
@@ -122,6 +124,7 @@ const Auth: React.FC<AuthProps> = ({ onGoBack }) => {
         username: newUser.username,
         email: newUser.email,
         phone_number: newUser.phoneNumber,
+        password: newUser.password,
         role: newUser.role,
         status: newUser.status,
         joined_at: newUser.joinedAt

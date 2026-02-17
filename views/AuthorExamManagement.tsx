@@ -26,7 +26,9 @@ import {
   Activity,
   ShieldCheck,
   ClipboardCheck,
-  Zap
+  Zap,
+  Coins,
+  ArrowLeft
 } from 'lucide-react';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
@@ -59,6 +61,7 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
     totalQuestions: 0,
     questionIds: [],
     passPercentage: 50,
+    marksPerQuestion: 1.0,
     negativeMarking: 0,
     difficulty: Difficulty.MEDIUM,
     isEnabled: true
@@ -86,7 +89,9 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
       createdAt: editingExam?.createdAt || new Date().toISOString(),
       authorId: currentUser?.id || '',
       authorName: currentUser?.name || 'Unknown Author',
-      ...(formData as Omit<Exam, 'id' | 'createdAt' | 'authorId' | 'authorName'>)
+      marksPerQuestion: formData.marksPerQuestion || 1.0,
+      negativeMarking: formData.negativeMarking || 0.0,
+      ...(formData as Omit<Exam, 'id' | 'createdAt' | 'authorId' | 'authorName' | 'marksPerQuestion' | 'negativeMarking'>)
     };
   };
 
@@ -98,7 +103,9 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
       setFormData({
         ...exam,
         questionIds: exam.questionIds || [],
-        difficulty: exam.difficulty || Difficulty.MEDIUM
+        difficulty: exam.difficulty || Difficulty.MEDIUM,
+        marksPerQuestion: exam.marksPerQuestion || 1.0,
+        negativeMarking: exam.negativeMarking || 0.0
       });
     } else {
       setEditingExam(null);
@@ -109,6 +116,7 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
         totalQuestions: 0,
         questionIds: [],
         passPercentage: 50,
+        marksPerQuestion: 1.0,
         negativeMarking: 0,
         difficulty: Difficulty.MEDIUM,
         isEnabled: true
@@ -175,14 +183,18 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
           </button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
           <div className="bg-black/10 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
             <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Subject Tier</p>
             <p className="text-lg font-black text-white">{formData.difficulty} LEVEL</p>
           </div>
           <div className="bg-black/10 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
-            <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Duration</p>
-            <p className="text-lg font-black text-white">{formData.durationMinutes}m Session</p>
+            <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Weight</p>
+            <p className="text-lg font-black text-white">+{formData.marksPerQuestion?.toFixed(2)}</p>
+          </div>
+          <div className="bg-black/10 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
+            <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Penalty</p>
+            <p className="text-lg font-black text-white">-{formData.negativeMarking?.toFixed(2)}</p>
           </div>
           <div className="bg-black/10 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
             <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-2">Item Pool</p>
@@ -271,7 +283,7 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{new Date(res.completedAt).toLocaleDateString()}</p>
                       </div>
                       <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${res.status === 'PASS' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {Math.round((res.score / res.totalMarks) * 100)}% {res.status}
+                        {Math.round((res.score / (res.totalMarks || 1)) * 100)}% {res.status}
                       </span>
                     </div>
                   ))}
@@ -526,6 +538,45 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
                         <div>
                           <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest px-2 mb-3">Pass %</label>
                           <input required type="number" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 transition-all font-black text-lg" value={formData.passPercentage} onChange={e => setFormData({ ...formData, passPercentage: parseInt(e.target.value) })} />
+                        </div>
+                      </div>
+
+                      <div className="p-8 bg-slate-900 rounded-[2.5rem] space-y-8 border border-slate-800">
+                        <h4 className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-3">
+                          <Coins size={16} /> Scoring Manifest
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-4">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Correct Answer Weight</label>
+                            <div className="relative group">
+                              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-emerald-500 font-black text-lg">+</div>
+                              <input 
+                                type="number"
+                                step="0.01"
+                                className="w-full pl-12 pr-6 py-4 bg-slate-800 border-2 border-slate-700 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 transition-all font-black text-white text-lg"
+                                value={formData.marksPerQuestion}
+                                onChange={e => setFormData({ ...formData, marksPerQuestion: parseFloat(e.target.value) || 0 })}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Wrong Answer Penalty</label>
+                            <div className="relative group">
+                              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-rose-500 font-black text-lg">-</div>
+                              <input 
+                                type="number"
+                                step="0.01"
+                                className="w-full pl-12 pr-6 py-4 bg-slate-800 border-2 border-slate-700 rounded-2xl outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 transition-all font-black text-white text-lg"
+                                value={formData.negativeMarking}
+                                onChange={e => setFormData({ ...formData, negativeMarking: parseFloat(e.target.value) || 0 })}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+                          <p className="text-[10px] text-indigo-300 font-black tracking-tight uppercase">Formula: (Correct × {formData.marksPerQuestion?.toFixed(2)}) − (Wrong × {formData.negativeMarking?.toFixed(2)})</p>
                         </div>
                       </div>
                     </div>

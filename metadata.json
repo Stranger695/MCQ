@@ -1,7 +1,5 @@
 {
   "name": "EduQuest MCQ Examination System",
   "description": "A comprehensive, multi-role online examination platform featuring role-based access control, real-time exam monitoring, automated grading, and certificate generation.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "requestFramePermissions": []
 }

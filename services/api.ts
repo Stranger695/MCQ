@@ -1,38 +1,49 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-import { User, MCQ, Exam, ExamResult, SiteSettings, UserRole } from '../types';
+import { User, MCQ, Exam, ExamResult, SiteSettings, UserRole, Category } from '../types';
 
 const supabaseUrl = 'https://bvjzuwulwdqubzifpeyo.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2anp1d3Vsd2RxdWJ6aWZwZXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMzc1NDgsImV4cCI6MjA4NjcxMzU0OH0.rivYIgGP4C9B4aDY9jeHizHgfS_8EiwbBkZZGVUqJ50';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Point to the custom backend server for secure logic
 const BACKEND_URL = 'http://localhost:3001/api/v1';
 
-/**
- * Backend Service Layer
- * Interfaces with both Supabase (Data) and Custom Backend (Logic)
- */
 export const BackendAPI = {
   // Profiles
   async getProfiles() {
     return await supabase.from('profiles').select('*');
   },
   async upsertProfile(user: User) {
-    return await supabase.from('profiles').upsert({
+    const payload = {
       id: user.id,
       name: user.name,
-      username: user.username,
+      username: user.username || null,
       email: user.email,
-      phone_number: user.phoneNumber,
+      phone_number: user.phoneNumber || null,
       role: user.role,
       status: user.status,
-      avatar: user.avatar,
+      avatar: user.avatar || null,
       joined_at: user.joinedAt,
-      password: user.password 
-    });
+      password: user.password || null
+    };
+    return await supabase.from('profiles').upsert(payload);
   },
   async deleteProfile(userId: string) {
     return await supabase.from('profiles').delete().eq('id', userId);
+  },
+
+  // Categories
+  async getCategories() {
+    return await supabase.from('categories').select('*');
+  },
+  async upsertCategory(cat: Category) {
+    return await supabase.from('categories').upsert({
+      id: cat.id,
+      name: cat.name,
+      description: cat.description
+    });
+  },
+  async deleteCategory(id: string) {
+    return await supabase.from('categories').delete().eq('id', id);
   },
 
   // Exams
@@ -50,11 +61,15 @@ export const BackendAPI = {
       total_questions: exam.totalQuestions,
       question_ids: exam.questionIds,
       pass_percentage: exam.passPercentage,
+      marks_per_question: exam.marksPerQuestion, // Added
       negative_marking: exam.negativeMarking,
       is_enabled: exam.isEnabled,
       difficulty: exam.difficulty,
       created_at: exam.createdAt
     });
+  },
+  async deleteExam(id: string) {
+    return await supabase.from('exams').delete().eq('id', id);
   },
 
   // Questions
@@ -76,38 +91,67 @@ export const BackendAPI = {
       created_at: q.createdAt
     });
   },
+  async deleteQuestion(id: string) {
+    return await supabase.from('questions').delete().eq('id', id);
+  },
 
-  // Results & SECURE GRADING
+  // Results
   async getResults() {
     return await supabase.from('results').select('*');
   },
   async saveResult(res: ExamResult, answers?: Record<string, number>) {
-    // Call custom backend for secure server-side grading
-    const response = await fetch(`${BACKEND_URL}/exams/submit`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-user-id': res.studentId
-      },
-      body: JSON.stringify({
-        studentId: res.studentId,
-        examId: res.examId,
-        answers, // Send answers for server validation
-        timeTakenSeconds: res.timeTakenSeconds
-      })
+    try {
+      const response = await fetch(`${BACKEND_URL}/exams/submit`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': res.studentId
+        },
+        body: JSON.stringify({
+          studentId: res.studentId,
+          examId: res.examId,
+          answers,
+          timeTakenSeconds: res.timeTakenSeconds
+        })
+      });
+      if (!response.ok) throw new Error('Backend server unreachable');
+      return await response.json();
+    } catch (err) {
+      return null;
+    }
+  },
+  async insertResultDirect(res: ExamResult) {
+    return await supabase.from('results').insert({
+      id: res.id,
+      student_id: res.studentId,
+      exam_id: res.examId,
+      score: res.score,
+      total_marks: res.totalMarks,
+      correct_answers: res.correctAnswers,
+      wrong_answers: res.wrongAnswers,
+      time_taken_seconds: res.timeTakenSeconds,
+      status: res.status,
+      completed_at: res.completedAt,
+      certificate_id: res.certificateId
     });
-    return await response.json();
+  },
+  async updateResult(res: ExamResult) {
+    return await supabase.from('results').update({
+      certificate_id: res.certificateId
+    }).eq('id', res.id);
   },
 
-  // Analytics
+  // Stats & Settings
   async getGlobalStats(userId: string) {
-    const response = await fetch(`${BACKEND_URL}/reports/summary`, {
-      headers: { 'x-user-id': userId }
-    });
-    return await response.json();
+    try {
+      const response = await fetch(`${BACKEND_URL}/reports/summary`, {
+        headers: { 'x-user-id': userId }
+      });
+      return await response.json();
+    } catch (err) {
+      return null;
+    }
   },
-
-  // Settings
   async getSettings() {
     return await supabase.from('site_settings').select('settings').single();
   },

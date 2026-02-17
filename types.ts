@@ -66,7 +66,8 @@ export interface Exam {
   totalQuestions: number;
   questionIds?: string[];
   passPercentage: number;
-  negativeMarking: number;
+  marksPerQuestion: number; // Weight for correct answers
+  negativeMarking: number;   // Penalty for wrong answers
   isEnabled: boolean;
   difficulty?: Difficulty;
   createdAt: string;

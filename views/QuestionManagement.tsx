@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../AppContext';
-import { MCQ, QuestionStatus, Difficulty } from '../types';
+import { MCQ, QuestionStatus, Difficulty, UserRole } from '../types';
 import { 
   Plus, 
   Check, 
@@ -22,7 +23,8 @@ import {
   Sparkles,
   Loader2,
   GripVertical,
-  CheckCircle2
+  CheckCircle2,
+  User as UserIcon
 } from 'lucide-react';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { generateAIQuestions } from '../services/gemini';
@@ -323,24 +325,37 @@ export const QuestionForm: React.FC<{ initialData?: MCQ | null; onComplete: () =
 };
 
 export const QuestionModeration: React.FC<{ authorId?: string; onEdit?: (q: MCQ) => void }> = ({ authorId, onEdit }) => {
-  const { questions, upsertQuestion, deleteQuestion, categories } = useApp();
+  const { questions, upsertQuestion, deleteQuestion, categories, users, currentUser } = useApp();
   const [viewingQ, setViewingQ] = useState<MCQ | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [catFilter, setCatFilter] = useState<string>('ALL');
   const [diffFilter, setDiffFilter] = useState<Difficulty | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'ALL'>(authorId ? 'ALL' : QuestionStatus.PENDING);
+  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'ALL'>(authorId ? 'ALL' : 'ALL');
+  const [selectedAuthorId, setSelectedAuthorId] = useState<string>('ALL');
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; qId: string; qText: string }>({ isOpen: false, qId: '', qText: '' });
+
+  const isModerator = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
+
+  const authorsList = useMemo(() => {
+    const authorIds = new Set(questions.map(q => q.authorId));
+    return users.filter(u => authorIds.has(u.id));
+  }, [questions, users]);
 
   const filtered = useMemo(() => {
     return questions.filter(q => {
+      // If authorId is passed (My Questions view), stick to that author
       if (authorId && q.authorId !== authorId) return false;
+      
+      // Filter by Author Dropdown (if on global registry)
+      if (!authorId && selectedAuthorId !== 'ALL' && q.authorId !== selectedAuthorId) return false;
+
       if (!q.questionText.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       if (catFilter !== 'ALL' && q.categoryId !== catFilter) return false;
       if (diffFilter !== 'ALL' && q.difficulty !== diffFilter) return false;
       if (statusFilter !== 'ALL' && q.status !== statusFilter) return false;
       return true;
     });
-  }, [questions, authorId, searchTerm, catFilter, diffFilter, statusFilter]);
+  }, [questions, authorId, searchTerm, catFilter, diffFilter, statusFilter, selectedAuthorId]);
 
   const handleStatus = (q: MCQ, status: QuestionStatus) => {
     upsertQuestion({ ...q, status });
@@ -358,15 +373,75 @@ export const QuestionModeration: React.FC<{ authorId?: string; onEdit?: (q: MCQ)
       />
 
       <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-4">
-        <div className="relative group">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-          <input 
-            type="text"
-            placeholder="Search knowledge fragments..."
-            className="w-full pl-14 pr-12 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 font-bold"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-2 relative group">
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+            <input 
+              type="text"
+              placeholder="Search knowledge fragments..."
+              className="w-full pl-14 pr-12 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-8 focus:ring-indigo-50 font-bold"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="relative">
+            <select 
+              className="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none font-black text-[10px] uppercase tracking-widest appearance-none"
+              value={catFilter}
+              onChange={(e) => setCatFilter(e.target.value)}
+            >
+              <option value="ALL">All Categories</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <Layers className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={16} />
+          </div>
+
+          {!authorId && (
+            <div className="relative">
+              <select 
+                className="w-full pl-6 pr-12 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none font-black text-[10px] uppercase tracking-widest appearance-none"
+                value={selectedAuthorId}
+                onChange={(e) => setSelectedAuthorId(e.target.value)}
+              >
+                <option value="ALL">All Authors</option>
+                {authorsList.map(a => <option key={a.id} value={a.id}>{a.username || a.name}</option>)}
+              </select>
+              <UserIcon className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={16} />
+            </div>
+          )}
+        </div>
+        
+        <div className="flex flex-wrap gap-4 pt-2">
+            <div className="flex items-center gap-2">
+               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status:</span>
+               <div className="flex bg-slate-100 p-1 rounded-xl">
+                  {['ALL', ...Object.values(QuestionStatus)].map(s => (
+                    <button 
+                      key={s} 
+                      onClick={() => setStatusFilter(s as any)}
+                      className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${statusFilter === s ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+               </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Difficulty:</span>
+               <div className="flex bg-slate-100 p-1 rounded-xl">
+                  {['ALL', ...Object.values(Difficulty)].map(d => (
+                    <button 
+                      key={d} 
+                      onClick={() => setDiffFilter(d as any)}
+                      className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${diffFilter === d ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+               </div>
+            </div>
         </div>
       </div>
 
@@ -376,6 +451,7 @@ export const QuestionModeration: React.FC<{ authorId?: string; onEdit?: (q: MCQ)
             <thead className="bg-slate-50/80">
               <tr>
                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase">Question Fragment</th>
+                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase">Classification</th>
                 {!authorId && <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase">Author</th>}
                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase">Status</th>
                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase text-right">Actions</th>
@@ -386,9 +462,19 @@ export const QuestionModeration: React.FC<{ authorId?: string; onEdit?: (q: MCQ)
                 <tr key={q.id} className="hover:bg-slate-50/40 group">
                   <td className="px-10 py-6">
                     <p className="font-black text-slate-800 line-clamp-1">{q.questionText}</p>
-                    <p className="text-[10px] font-bold text-indigo-400 uppercase mt-1.5">{categories.find(c => c.id === q.categoryId)?.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                       <span className={`text-[8px] font-black uppercase tracking-widest ${q.difficulty === Difficulty.HARD ? 'text-rose-500' : q.difficulty === Difficulty.MEDIUM ? 'text-amber-500' : 'text-emerald-500'}`}>{q.difficulty}</span>
+                    </div>
                   </td>
-                  {!authorId && <td className="px-10 py-6 text-sm font-black text-slate-600">{q.authorName}</td>}
+                  <td className="px-10 py-6">
+                    <span className="text-xs font-bold text-slate-600 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">{categories.find(c => c.id === q.categoryId)?.name}</span>
+                  </td>
+                  {!authorId && <td className="px-10 py-6 text-sm font-black text-slate-600">
+                    <div className="flex flex-col">
+                       <span className="text-xs">{q.authorName}</span>
+                       <span className="text-[9px] text-slate-400 uppercase tracking-tighter">@{users.find(u => u.id === q.authorId)?.username || 'user'}</span>
+                    </div>
+                  </td>}
                   <td className="px-10 py-6">
                     <span className={`px-4 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-widest border ${
                       q.status === QuestionStatus.APPROVED ? 'bg-green-50 text-green-700 border-green-100' : 
@@ -397,47 +483,69 @@ export const QuestionModeration: React.FC<{ authorId?: string; onEdit?: (q: MCQ)
                   </td>
                   <td className="px-10 py-6 text-right">
                     <div className="flex justify-end gap-3">
-                      <button onClick={() => setViewingQ(q)} className="p-2.5 text-slate-400 hover:text-indigo-600"><Eye size={20} /></button>
-                      {authorId ? (
+                      <button onClick={() => setViewingQ(q)} className="p-2.5 text-slate-400 hover:text-indigo-600" title="View Detail"><Eye size={20} /></button>
+                      {(authorId || isModerator) && (
                         <>
-                          <button onClick={() => onEdit?.(q)} className="p-2.5 text-slate-400 hover:text-indigo-600"><Edit2 size={20} /></button>
-                          <button onClick={() => setDeleteModal({ isOpen: true, qId: q.id, qText: q.questionText })} className="p-2.5 text-slate-400 hover:text-red-600"><Trash2 size={20} /></button>
+                          <button onClick={() => onEdit?.(q)} className="p-2.5 text-slate-400 hover:text-indigo-600" title="Edit Question"><Edit2 size={20} /></button>
+                          <button onClick={() => setDeleteModal({ isOpen: true, qId: q.id, qText: q.questionText })} className="p-2.5 text-slate-400 hover:text-red-600" title="Purge Question"><Trash2 size={20} /></button>
                         </>
-                      ) : (
-                        q.status === QuestionStatus.PENDING && (
-                          <>
-                            <button onClick={() => handleStatus(q, QuestionStatus.APPROVED)} className="p-2.5 bg-green-50 text-green-600 rounded-xl"><Check size={20} /></button>
-                            <button onClick={() => handleStatus(q, QuestionStatus.REJECTED)} className="p-2.5 bg-red-50 text-red-700 rounded-xl"><X size={20} /></button>
-                          </>
-                        )
+                      )}
+                      {isModerator && q.status === QuestionStatus.PENDING && (
+                        <div className="flex gap-2 border-l border-slate-100 pl-3">
+                          <button onClick={() => handleStatus(q, QuestionStatus.APPROVED)} className="p-2.5 bg-green-50 text-green-600 rounded-xl" title="Approve"><Check size={20} /></button>
+                          <button onClick={() => handleStatus(q, QuestionStatus.REJECTED)} className="p-2.5 bg-red-50 text-red-700 rounded-xl" title="Reject"><X size={20} /></button>
+                        </div>
                       )}
                     </div>
                   </td>
                 </tr>
               ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-10 py-20 text-center">
+                    <AlertCircle size={48} className="text-slate-100 mx-auto mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-300">No knowledge matches in registry</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
       {viewingQ && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-10 bg-indigo-600 text-white flex justify-between items-center">
-              <h3 className="font-black text-2xl">Fragment Detail</h3>
-              <button onClick={() => setViewingQ(null)}><X size={24} /></button>
+              <div>
+                <h3 className="font-black text-2xl uppercase tracking-widest">Question Fragment</h3>
+                <p className="text-indigo-200 text-[10px] font-black uppercase tracking-widest mt-1">Author: {viewingQ.authorName}</p>
+              </div>
+              <button onClick={() => setViewingQ(null)} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><X size={24} /></button>
             </div>
-            <div className="p-10 space-y-8">
-              <p className="text-2xl font-black text-slate-800">{viewingQ.questionText}</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-10 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="flex items-center justify-between">
+                <span className="px-4 py-1 bg-slate-100 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-200">{categories.find(c => c.id === viewingQ.categoryId)?.name}</span>
+                <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${viewingQ.difficulty === Difficulty.HARD ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>{viewingQ.difficulty} LVL</span>
+              </div>
+              
+              <p className="text-2xl font-black text-slate-800 leading-tight">{viewingQ.questionText}</p>
+              
+              <div className="grid grid-cols-1 gap-4">
                 {viewingQ.options.map((opt, i) => (
-                  <div key={i} className={`p-5 rounded-3xl border-2 ${viewingQ.correctOptionIndex === i ? 'bg-green-50 border-green-400' : 'bg-slate-50 border-slate-100'}`}>
-                    <span className="font-black text-sm">{String.fromCharCode(65 + i)}: {opt}</span>
+                  <div key={i} className={`p-5 rounded-3xl border-2 transition-all flex items-center gap-4 ${viewingQ.correctOptionIndex === i ? 'bg-emerald-50 border-emerald-400' : 'bg-slate-50 border-slate-100'}`}>
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${viewingQ.correctOptionIndex === i ? 'bg-emerald-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>{String.fromCharCode(65 + i)}</span>
+                    <span className={`font-bold text-sm ${viewingQ.correctOptionIndex === i ? 'text-emerald-900' : 'text-slate-600'}`}>{opt}</span>
+                    {viewingQ.correctOptionIndex === i && <CheckCircle2 size={20} className="text-emerald-600 ml-auto" />}
                   </div>
                 ))}
               </div>
-              <div className="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 italic">
-                <p className="text-sm text-indigo-900">{viewingQ.explanation}</p>
+              
+              <div className="space-y-3">
+                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Knowledge Rationale</h5>
+                <div className="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 italic">
+                  <p className="text-sm text-indigo-900 leading-relaxed font-medium">{viewingQ.explanation}</p>
+                </div>
               </div>
             </div>
           </div>

@@ -62,11 +62,17 @@ app.post('/api/v1/exams/submit', async (req, res) => {
             }
         });
 
-        // Apply Negative Marking Protocol
-        const penalty = wrongCount * (exam.negative_marking || 0);
-        const score = Math.max(0, correctCount - penalty);
-        const totalMarks = questionData.length;
-        const percentage = (score / totalMarks) * 100;
+        // Apply Scoring Protocol
+        const marksPerQ = exam.marks_per_question || 1.0;
+        const penaltyPerQ = exam.negative_marking || 0.0;
+        
+        const correctPoints = correctCount * marksPerQ;
+        const totalPenalty = wrongCount * penaltyPerQ;
+        
+        const score = Math.max(0, correctPoints - totalPenalty);
+        const totalMarks = questionData.length * marksPerQ;
+        
+        const percentage = totalMarks > 0 ? (score / totalMarks) * 100 : 0;
         const status = percentage >= exam.pass_percentage ? 'PASS' : 'FAIL';
 
         // 4. Persistence
@@ -78,7 +84,7 @@ app.post('/api/v1/exams/submit', async (req, res) => {
             student_id: studentId,
             exam_id: examId,
             score,
-            total_marks: totalMarks,
+            total_marks: Math.round(totalMarks),
             correct_answers: correctCount,
             wrong_answers: wrongCount,
             time_taken_seconds: timeTakenSeconds,

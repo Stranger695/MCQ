@@ -27,7 +27,8 @@ import {
   Layout,
   AlertTriangle,
   Activity,
-  ArrowLeft
+  ArrowLeft,
+  Coins
 } from 'lucide-react';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
@@ -55,6 +56,7 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
     totalQuestions: 0,
     questionIds: [],
     passPercentage: 50,
+    marksPerQuestion: 1.0,
     negativeMarking: 0,
     difficulty: Difficulty.MEDIUM,
     isEnabled: true
@@ -98,7 +100,9 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
       setFormData({
         ...exam,
         questionIds: exam.questionIds || [],
-        difficulty: exam.difficulty || Difficulty.MEDIUM
+        difficulty: exam.difficulty || Difficulty.MEDIUM,
+        marksPerQuestion: exam.marksPerQuestion || 1.0,
+        negativeMarking: exam.negativeMarking || 0.0
       });
     } else {
       setEditingExam(null);
@@ -109,6 +113,7 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
         totalQuestions: 0,
         questionIds: [],
         passPercentage: 50,
+        marksPerQuestion: 1.0,
         negativeMarking: 0,
         difficulty: Difficulty.MEDIUM,
         isEnabled: true
@@ -136,7 +141,9 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
       createdAt: editingExam?.createdAt || new Date().toISOString(),
       authorId: editingExam?.authorId || 'system',
       authorName: editingExam?.authorName || 'Administrator',
-      ...(formData as Omit<Exam, 'id' | 'createdAt'>)
+      marksPerQuestion: formData.marksPerQuestion || 1.0,
+      negativeMarking: formData.negativeMarking || 0.0,
+      ...(formData as Omit<Exam, 'id' | 'createdAt' | 'marksPerQuestion' | 'negativeMarking'>)
     };
   };
 
@@ -174,22 +181,26 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          <div className="lg:col-span-4 grid grid-cols-2 md:grid-cols-5 gap-6">
             <div className="bg-white/5 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Subject DNA</p>
-              <p className="text-lg font-black text-indigo-400">{formData.difficulty} LEVEL</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Complexity</p>
+              <p className="text-lg font-black text-indigo-400">{formData.difficulty} LVL</p>
             </div>
             <div className="bg-white/5 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Duration</p>
-              <p className="text-lg font-black text-white">{formData.durationMinutes} MINS</p>
+              <p className="text-lg font-black text-white">{formData.durationMinutes}m</p>
             </div>
             <div className="bg-white/5 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Question Count</p>
-              <p className="text-lg font-black text-white">{formData.questionIds?.length} NODES</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Score Weight</p>
+              <p className="text-lg font-black text-emerald-400">+{formData.marksPerQuestion?.toFixed(2)}</p>
             </div>
             <div className="bg-white/5 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Pass Threshold</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Penalty</p>
+              <p className="text-lg font-black text-rose-400">-{formData.negativeMarking?.toFixed(2)}</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Threshold</p>
               <p className="text-lg font-black text-white">{formData.passPercentage}%</p>
             </div>
           </div>
@@ -214,7 +225,7 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
                 </ResponsiveContainer>
              </div>
              <div className="text-right">
-                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Complexity Mix</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Mix</p>
                 <div className="flex gap-2 justify-end">
                    {difficultyStats.map((d, i) => d.value > 0 && (
                      <div key={i} className="w-2 h-2 rounded-full" style={{ backgroundColor: DIFF_COLORS[d.name as Difficulty] }}></div>
@@ -280,7 +291,7 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
                     <Clock size={20} />
                     <span className="text-[10px] font-black uppercase tracking-widest">Time Estimates</span>
                  </div>
-                 <p className="text-xs text-slate-500 font-medium leading-relaxed">Average of <span className="font-black text-indigo-600">{(formData.durationMinutes! / selectedQuestionsData.length).toFixed(1)} mins</span> per question node.</p>
+                 <p className="text-xs text-slate-500 font-medium leading-relaxed">Average of <span className="font-black text-indigo-600">{(formData.durationMinutes! / (selectedQuestionsData.length || 1)).toFixed(1)} mins</span> per question node.</p>
               </div>
 
               {formData.negativeMarking! > 0 && (
@@ -289,7 +300,7 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
                       <AlertTriangle size={20} />
                       <span className="text-[10px] font-black uppercase tracking-widest">Penalty Warning</span>
                    </div>
-                   <p className="text-xs text-amber-700/70 font-medium">Negative marking is active (-{formData.negativeMarking} pts). Advise candidates to skip uncertain fragments.</p>
+                   <p className="text-xs text-amber-700/70 font-medium">Negative marking is active (-{formData.negativeMarking?.toFixed(2)} pts). Advise candidates to skip uncertain fragments.</p>
                 </div>
               )}
 
@@ -302,7 +313,7 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
                     {difficultyStats.map((d, i) => (
                       <div 
                         key={i} 
-                        style={{ width: `${(d.value / selectedQuestionsData.length) * 100}%`, backgroundColor: DIFF_COLORS[d.name as Difficulty] }} 
+                        style={{ width: `${(d.value / (selectedQuestionsData.length || 1)) * 100}%`, backgroundColor: DIFF_COLORS[d.name as Difficulty] }} 
                         className="h-full transition-all duration-1000"
                       />
                     ))}
@@ -432,7 +443,7 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
                 <h3 className="font-black text-2xl tracking-tight">
                   {isPreviewActive ? 'Deployment Manifest Audit' : (editingExam ? 'Synchronize Exam Node' : 'Provision New Exam')}
                 </h3>
-                <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Architecture Wizard v2.8</p>
+                <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Architecture Wizard v2.9</p>
               </div>
               <button 
                 onClick={() => isPreviewActive ? setIsPreviewActive(false) : setIsModalOpen(false)} 
@@ -509,6 +520,48 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
                             value={formData.passPercentage}
                             onChange={e => setFormData({ ...formData, passPercentage: parseInt(e.target.value) })}
                           />
+                        </div>
+                      </div>
+
+                      <div className="p-8 bg-slate-900 rounded-[2.5rem] space-y-8 border border-slate-800">
+                        <h4 className="text-[11px] font-black text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-3">
+                          <Coins size={16} /> Scoring Protocol
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="space-y-4">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Mark per Correct Answer</label>
+                            <div className="relative group">
+                              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-emerald-500 font-black text-lg">+</div>
+                              <input 
+                                type="number"
+                                step="0.01"
+                                className="w-full pl-12 pr-6 py-4 bg-slate-800 border-2 border-slate-700 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 transition-all font-black text-white text-lg"
+                                value={formData.marksPerQuestion}
+                                onChange={e => setFormData({ ...formData, marksPerQuestion: parseFloat(e.target.value) || 0 })}
+                              />
+                            </div>
+                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest text-center">Positive value (e.g. 1.0, 2.5)</p>
+                          </div>
+
+                          <div className="space-y-4">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Penalty per Wrong Answer</label>
+                            <div className="relative group">
+                              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-rose-500 font-black text-lg">-</div>
+                              <input 
+                                type="number"
+                                step="0.01"
+                                className="w-full pl-12 pr-6 py-4 bg-slate-800 border-2 border-slate-700 rounded-2xl outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 transition-all font-black text-white text-lg"
+                                value={formData.negativeMarking}
+                                onChange={e => setFormData({ ...formData, negativeMarking: parseFloat(e.target.value) || 0 })}
+                              />
+                            </div>
+                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest text-center">Penalty magnitude (e.g. 0.25, 0.33)</p>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+                          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Live Formula</p>
+                          <p className="text-sm text-indigo-300 font-black mt-1 tracking-tight">Score = (Correct × {formData.marksPerQuestion?.toFixed(2)}) − (Wrong × {formData.negativeMarking?.toFixed(2)})</p>
                         </div>
                       </div>
                     </div>

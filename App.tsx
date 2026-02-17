@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { AppProvider, useApp } from './AppContext';
 import Layout from './components/Layout';
@@ -85,6 +86,7 @@ const Toast: React.FC<{ message: string; type: 'SUCCESS' | 'ERROR'; onClose: () 
 };
 
 const ResultSummary: React.FC<{ result: ExamResult; exam: Exam; onDone: () => void }> = ({ result, exam, onDone }) => {
+  const percentage = (result.score / (result.totalMarks || 1)) * 100;
   return (
     <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden max-w-2xl w-full border border-slate-200 animate-in zoom-in-95 duration-500">
       <div className={`p-12 text-center text-white ${result.status === 'PASS' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
@@ -97,18 +99,26 @@ const ResultSummary: React.FC<{ result: ExamResult; exam: Exam; onDone: () => vo
       <div className="p-12 space-y-10">
         <div className="grid grid-cols-2 gap-8">
           <div className="text-center p-6 bg-slate-50 rounded-3xl border border-slate-100">
-            <p className="text-4xl font-black text-slate-800 tracking-tighter">{Math.round((result.score / result.totalMarks) * 100)}%</p>
+            <p className="text-4xl font-black text-slate-800 tracking-tighter">
+              {percentage % 1 === 0 ? percentage : percentage.toFixed(2)}%
+            </p>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Mastery Index</p>
           </div>
           <div className="text-center p-6 bg-slate-50 rounded-3xl border border-slate-100">
-            <p className="text-4xl font-black text-slate-800 tracking-tighter">{result.correctAnswers}/{result.totalMarks}</p>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Correct Items</p>
+            <p className="text-4xl font-black text-slate-800 tracking-tighter">
+              {result.score % 1 === 0 ? result.score : result.score.toFixed(2)}
+            </p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Earned Points</p>
           </div>
         </div>
         <div className="space-y-4">
           <div className="flex justify-between items-center py-4 border-b border-slate-100">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Time Expended</span>
             <span className="font-bold text-slate-700">{Math.floor(result.timeTakenSeconds / 60)}m {result.timeTakenSeconds % 60}s</span>
+          </div>
+          <div className="flex justify-between items-center py-4 border-b border-slate-100">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Correct Items</span>
+            <span className="font-bold text-slate-700">{result.correctAnswers}</span>
           </div>
           {result.certificateId && (
             <div className="flex justify-between items-center py-4 border-b border-slate-100">
@@ -362,6 +372,7 @@ const UserDetailView: React.FC<{ user: User; onBack: () => void; onViewResult: (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                    {myResults.map(res => {
                      const exam = exams.find(e => e.id === res.examId);
+                     const masterPerc = (res.score / (res.totalMarks || 1)) * 100;
                      return (
                        <div key={res.id} className="bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100 hover:bg-white hover:shadow-xl transition-all group">
                           <div className="flex justify-between items-start mb-4">
@@ -370,7 +381,7 @@ const UserDetailView: React.FC<{ user: User; onBack: () => void; onViewResult: (
                           </div>
                           <h4 className="font-black text-slate-800 text-base leading-tight mb-3 line-clamp-1">{exam?.title || 'System Audit Log'}</h4>
                           <div className="flex items-baseline gap-2">
-                             <span className="text-3xl font-black text-slate-900 tracking-tighter">{Math.round((res.score / res.totalMarks) * 100)}%</span>
+                             <span className="text-3xl font-black text-slate-900 tracking-tighter">{masterPerc % 1 === 0 ? masterPerc : masterPerc.toFixed(2)}%</span>
                              <span className="text-[8px] font-black text-slate-400 uppercase">Mastery</span>
                           </div>
                        </div>
@@ -507,7 +518,11 @@ const AppContent: React.FC = () => {
       case 'my-exams': return <AuthorExamManagement onLaunchSimulation={setSandboxExam} />;
       case 'settings': return <SiteSettingsView />;
       case 'categories': return <CategoryManagement />;
-      case 'questions': return <QuestionModeration />;
+      case 'questions': return (
+        <QuestionModeration 
+          onEdit={(q) => { setEditingQuestion(q); setActiveView('add-question'); }}
+        />
+      );
       case 'reports': return <Reports />;
       case 'certificates': return <CertificateManagement />;
       case 'profile-settings': 
@@ -543,22 +558,25 @@ const AppContent: React.FC = () => {
       case 'my-results':
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-12">
-            {results.filter(r => r.studentId === currentUser?.id).map(res => (
-              <div key={res.id} className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-200 flex flex-col justify-between hover:shadow-2xl transition-all duration-500">
-                <div>
-                  <div className="flex justify-between items-start mb-8">
-                     <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase border ${res.status === 'PASS' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{res.status}</span>
-                     <span className="text-[9px] text-slate-400 font-black">{new Date(res.completedAt).toLocaleDateString()}</span>
+            {results.filter(r => r.studentId === currentUser?.id).map(res => {
+              const perc = (res.score / (res.totalMarks || 1)) * 100;
+              return (
+                <div key={res.id} className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-slate-200 flex flex-col justify-between hover:shadow-2xl transition-all duration-500">
+                  <div>
+                    <div className="flex justify-between items-start mb-8">
+                       <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase border ${res.status === 'PASS' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{res.status}</span>
+                       <span className="text-[9px] text-slate-400 font-black">{new Date(res.completedAt).toLocaleDateString()}</span>
+                    </div>
+                    <h4 className="font-black text-slate-800 text-xl md:text-3xl mb-6 leading-tight truncate">{exams.find(e => e.id === res.examId)?.title}</h4>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl md:text-5xl font-black text-indigo-600 tracking-tighter">{perc % 1 === 0 ? perc : perc.toFixed(2)}%</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase">Mastery</span>
+                    </div>
                   </div>
-                  <h4 className="font-black text-slate-800 text-xl md:text-3xl mb-6 leading-tight truncate">{exams.find(e => e.id === res.examId)?.title}</h4>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl md:text-5xl font-black text-indigo-600 tracking-tighter">{Math.round((res.score / res.totalMarks) * 100)}%</span>
-                    <span className="text-[10px] font-black text-slate-400 uppercase">Mastery</span>
-                  </div>
+                  <button onClick={() => setLastResult(res)} className="mt-10 w-full py-4 bg-slate-50 text-slate-800 border-2 border-slate-100 rounded-xl text-[10px] font-black uppercase hover:border-indigo-200 transition-all">View Audit</button>
                 </div>
-                <button onClick={() => setLastResult(res)} className="mt-10 w-full py-4 bg-slate-50 text-slate-800 border-2 border-slate-100 rounded-xl text-[10px] font-black uppercase hover:border-indigo-200 transition-all">View Audit</button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         );
       case 'profile': return <ProfileView onViewResult={setLastResult} onEditProfile={() => setActiveView('profile-settings')} />;

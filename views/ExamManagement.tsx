@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../AppContext';
-import { Exam, Category, MCQ, QuestionStatus, Difficulty } from '../types';
+import { Exam, Category, MCQ, QuestionStatus, Difficulty, UserStatus } from '../types';
 import { 
   Plus, 
   Edit2, 
@@ -28,7 +28,9 @@ import {
   AlertTriangle,
   Activity,
   ArrowLeft,
-  Coins
+  Coins,
+  Lock,
+  FileQuestion
 } from 'lucide-react';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
@@ -38,7 +40,7 @@ interface ExamManagementProps {
 }
 
 export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulation }) => {
-  const { exams, categories, questions, upsertExam, deleteExam } = useApp();
+  const { exams, categories, questions, upsertExam, deleteExam, currentUser } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPreviewActive, setIsPreviewActive] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
@@ -48,6 +50,8 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
     examId: '',
     examTitle: ''
   });
+
+  const isInactive = currentUser?.status === UserStatus.INACTIVE;
 
   const [formData, setFormData] = useState<Partial<Exam>>({
     title: '',
@@ -93,6 +97,7 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
   }, [availableCategoryQuestions, qSearchTerm]);
 
   const openModal = (exam: Exam | null = null) => {
+    if (isInactive) return;
     setQSearchTerm('');
     setIsPreviewActive(false);
     if (exam) {
@@ -342,10 +347,15 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
           <p className="text-slate-500 text-sm md:text-base mt-1">Configure academic assessments and curated MCQ clusters.</p>
         </div>
         <button 
+          disabled={isInactive}
           onClick={() => openModal()}
-          className="flex items-center gap-3 px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95"
+          className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] md:text-xs transition-all shadow-xl active:scale-95 ${
+            isInactive 
+            ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300' 
+            : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-100'
+          }`}
         >
-          <Plus size={18} /> Provision Exam Cluster
+          {isInactive ? <Lock size={18} /> : <Plus size={18} />} Provision Exam Cluster
         </button>
       </div>
 
@@ -376,8 +386,9 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
                     </div>
                   </div>
                   <button 
+                    disabled={isInactive}
                     onClick={() => upsertExam({ ...exam, isEnabled: !exam.isEnabled })}
-                    className={`p-2.5 rounded-xl transition-all shadow-sm ${exam.isEnabled ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}
+                    className={`p-2.5 rounded-xl transition-all shadow-sm ${exam.isEnabled ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'} ${isInactive ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {exam.isEnabled ? <Play size={18} /> : <Pause size={18} />}
                   </button>
@@ -391,13 +402,30 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
+                      <div className="flex items-center gap-2 text-slate-400">
+                         <FileQuestion size={14} className="text-indigo-500" />
+                         <span className="text-[8px] font-black uppercase tracking-widest">Selected</span>
+                      </div>
+                      <p className="text-lg font-black text-slate-800">{selectedCount} <span className="text-[10px] text-slate-400">MCQs</span></p>
+                   </div>
+                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
+                      <div className="flex items-center gap-2 text-slate-400">
+                         <Clock size={14} className="text-amber-500" />
+                         <span className="text-[8px] font-black uppercase tracking-widest">Time</span>
+                      </div>
+                      <p className="text-lg font-black text-slate-800">{exam.durationMinutes} <span className="text-[10px] text-slate-400">Mins</span></p>
+                   </div>
+                </div>
+
                 <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-3">
                    <div className="flex justify-between items-center">
                      <div className="flex items-center gap-2">
                         <Layers size={14} className="text-indigo-500" />
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Question Matrix</span>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pool Saturation</span>
                      </div>
-                     <span className="text-[11px] font-black text-slate-800">{selectedCount} <span className="text-slate-400 text-[9px]">of</span> {categoryPoolCount} <span className="text-slate-400 text-[9px] font-bold">FRAGMENTS</span></span>
+                     <span className="text-[11px] font-black text-slate-800">{selectedCount} <span className="text-slate-400 text-[9px]">/</span> {categoryPoolCount}</span>
                    </div>
                    <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
                       <div 
@@ -410,14 +438,24 @@ export const ExamManagement: React.FC<ExamManagementProps> = ({ onLaunchSimulati
 
               <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                 <button 
+                  disabled={isInactive}
                   onClick={() => openModal(exam)}
-                  className="flex-1 py-3.5 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-all shadow-sm"
+                  className={`flex-1 py-3.5 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm ${
+                    isInactive 
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300' 
+                    : 'text-slate-600 bg-white border border-slate-200 hover:bg-slate-100'
+                  }`}
                 >
-                  <Edit2 size={16} /> Refine Protocol
+                  {isInactive ? <Lock size={16} /> : <Edit2 size={16} />} Refine Protocol
                 </button>
                 <button 
+                  disabled={isInactive}
                   onClick={() => setDeleteModal({ isOpen: true, examId: exam.id, examTitle: exam.title })}
-                  className="p-3.5 text-red-500 hover:bg-red-50 hover:text-red-700 rounded-xl transition-all border border-transparent hover:border-red-100"
+                  className={`p-3.5 rounded-xl transition-all border border-transparent ${
+                    isInactive 
+                    ? 'text-slate-300 cursor-not-allowed' 
+                    : 'text-red-500 hover:bg-red-50 hover:text-red-700 hover:border-red-100'
+                  }`}
                 >
                   <Trash2 size={20} />
                 </button>

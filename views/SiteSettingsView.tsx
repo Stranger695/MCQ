@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../AppContext';
 import { SocialLink } from '../types';
 import { 
@@ -16,7 +16,10 @@ import {
   ChevronDown, 
   Share2,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Image as ImageIcon,
+  Upload,
+  RefreshCw
 } from 'lucide-react';
 
 const SocialIcon = ({ platform, size = 18 }: { platform: string; size?: number }) => {
@@ -34,11 +37,27 @@ const SocialIcon = ({ platform, size = 18 }: { platform: string; size?: number }
 export const SiteSettingsView: React.FC = () => {
   const { settings, updateSettings } = useApp();
   const [formData, setFormData] = useState(settings);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(formData);
     alert('System environment configuration nodes updated successfully.');
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1 * 1024 * 1024) {
+        alert('Logo cluster too large. Maximum size is 1MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, logoUrl: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const addSocialLink = () => {
@@ -87,54 +106,89 @@ export const SiteSettingsView: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* Core Configuration */}
-        <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-10">
-          <div className="flex items-center gap-4 text-indigo-600">
-            <div className="p-3 bg-indigo-50 rounded-2xl">
-              <Globe size={24} />
-            </div>
-            <h4 className="font-black uppercase text-xs tracking-widest">Platform Core</h4>
-          </div>
-          
-          <div className="space-y-8">
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Display Name</label>
-              <input 
-                className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[2rem] outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black text-lg" 
-                value={formData.siteName} 
-                onChange={e => setFormData({ ...formData, siteName: e.target.value })} 
-              />
-            </div>
-            
-            <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-               <div className="flex items-center justify-between mb-6">
-                  <h5 className="font-black text-[10px] uppercase tracking-widest text-slate-500">Global Font Scaling</h5>
-                  <span className="px-4 py-1.5 bg-white border border-slate-200 rounded-full font-black text-indigo-600 text-xs shadow-sm">{formData.baseFontSize}px</span>
-               </div>
-               <input 
-                 type="range" 
-                 min="12" 
-                 max="24" 
-                 step="1" 
-                 className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" 
-                 value={formData.baseFontSize} 
-                 onChange={e => setFormData({ ...formData, baseFontSize: parseInt(e.target.value) })} 
-               />
-               <p className="mt-4 text-[9px] font-bold text-slate-400 text-center uppercase tracking-widest">Adjust for regional accessibility compliance</p>
+        {/* Core Configuration & Visual Identity */}
+        <div className="space-y-12">
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-10">
+            <div className="flex items-center gap-4 text-indigo-600">
+              <div className="p-3 bg-indigo-50 rounded-2xl">
+                <ImageIcon size={24} />
+              </div>
+              <h4 className="font-black uppercase text-xs tracking-widest">Visual Identity</h4>
             </div>
 
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Primary Brand Identity Color</label>
-              <div className="flex items-center gap-6">
+            <div className="space-y-8">
+              {/* Logo Management */}
+              <div className="flex flex-col sm:flex-row items-center gap-8 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                <div className="relative group">
+                  <div className="w-24 h-24 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center overflow-hidden">
+                    <img src={formData.logoUrl} alt="Site Logo" className="max-w-full max-h-full object-contain p-2" />
+                  </div>
+                  <button 
+                    onClick={() => logoInputRef.current?.click()}
+                    className="absolute -bottom-2 -right-2 p-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 transition-all active:scale-90"
+                  >
+                    <Upload size={14} />
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={logoInputRef} 
+                    onChange={handleLogoUpload} 
+                    className="hidden" 
+                    accept="image/*" 
+                  />
+                </div>
+                <div className="flex-1 text-center sm:text-left space-y-2">
+                  <h5 className="font-black text-[10px] uppercase tracking-widest text-slate-500">Platform Asset: Logo</h5>
+                  <p className="text-[9px] text-slate-400 font-bold leading-relaxed">Customize your organization's logo across the portal. Recommended size: 512x512 PNG.</p>
+                  <button 
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="mt-2 text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:underline flex items-center gap-2"
+                  >
+                    <RefreshCw size={10} /> Sync New Fragment
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Display Name</label>
                 <input 
-                  type="color" 
-                  className="w-20 h-20 rounded-3xl cursor-pointer border-4 border-white shadow-xl" 
-                  value={formData.primaryColor} 
-                  onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} 
+                  className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-[2rem] outline-none focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black text-lg" 
+                  value={formData.siteName} 
+                  onChange={e => setFormData({ ...formData, siteName: e.target.value })} 
                 />
-                <div>
-                  <code className="text-sm font-black text-slate-700 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 uppercase">{formData.primaryColor}</code>
-                  <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Hexadecimal Cluster Value</p>
+              </div>
+              
+              <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                <div className="flex items-center justify-between mb-6">
+                    <h5 className="font-black text-[10px] uppercase tracking-widest text-slate-500">Global Font Scaling</h5>
+                    <span className="px-4 py-1.5 bg-white border border-slate-200 rounded-full font-black text-indigo-600 text-xs shadow-sm">{formData.baseFontSize}px</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="12" 
+                  max="24" 
+                  step="1" 
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" 
+                  value={formData.baseFontSize} 
+                  onChange={e => setFormData({ ...formData, baseFontSize: parseInt(e.target.value) })} 
+                />
+                <p className="mt-4 text-[9px] font-bold text-slate-400 text-center uppercase tracking-widest">Adjust for regional accessibility compliance</p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Primary Brand Identity Color</label>
+                <div className="flex items-center gap-6">
+                  <input 
+                    type="color" 
+                    className="w-20 h-20 rounded-3xl cursor-pointer border-4 border-white shadow-xl" 
+                    value={formData.primaryColor} 
+                    onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} 
+                  />
+                  <div>
+                    <code className="text-sm font-black text-slate-700 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 uppercase">{formData.primaryColor}</code>
+                    <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Hexadecimal Cluster Value</p>
+                  </div>
                 </div>
               </div>
             </div>

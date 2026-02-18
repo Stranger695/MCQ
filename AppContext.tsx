@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, MCQ, Category, Exam, ExamResult, SiteSettings, UserRole, QuestionStatus, UserStatus, Difficulty, Notification } from './types';
+import { User, MCQ, Category, Exam, ExamResult, SiteSettings, UserRole, QuestionStatus, UserStatus, Difficulty, Notification, Inquiry, InquiryStatus } from './types';
 import { INITIAL_USERS, INITIAL_CATEGORIES, INITIAL_QUESTIONS, INITIAL_EXAMS, INITIAL_SETTINGS } from './constants';
 import { BackendAPI } from './services/api';
 
@@ -18,6 +18,8 @@ interface AppContextType {
   setResults: React.Dispatch<React.SetStateAction<ExamResult[]>>;
   notifications: Notification[];
   setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>;
+  inquiries: Inquiry[];
+  setInquiries: React.Dispatch<React.SetStateAction<Inquiry[]>>;
   settings: SiteSettings;
   setSettings: React.Dispatch<React.SetStateAction<SiteSettings>>;
   updateUser: (updatedUser: User) => Promise<void>;
@@ -33,9 +35,12 @@ interface AppContextType {
   updateSettings: (settings: SiteSettings) => void;
   broadcastToStudents: (title: string, message: string) => void;
   markNotificationRead: (id: string) => void;
+  updateInquiryStatus: (id: string, status: InquiryStatus) => Promise<void>;
+  deleteInquiry: (id: string) => Promise<void>;
   logout: () => void;
   importBackup: (data: any) => void;
   isLoading: boolean;
+  refreshInquiries: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -53,6 +58,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [exams, setExams] = useState<Exam[]>(INITIAL_EXAMS);
   const [results, setResults] = useState<ExamResult[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [settings, setSettings] = useState<SiteSettings>(INITIAL_SETTINGS);
 
   useEffect(() => {
@@ -73,7 +79,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         { data: exms },
         { data: res },
         { data: stngs },
-        { data: notifs }
+        { data: notifs },
+        { data: inqs }
       ] = await Promise.all([
         BackendAPI.getProfiles(),
         BackendAPI.getCategories(), 
@@ -81,7 +88,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         BackendAPI.getExams(),
         BackendAPI.getResults(),
         BackendAPI.getSettings(),
-        BackendAPI.getNotifications()
+        BackendAPI.getNotifications(),
+        BackendAPI.getInquiries()
       ]);
 
       const dbUsers = (profiles || []).map(p => ({
@@ -89,12 +97,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: p.name,
         username: p.username || '',
         email: p.email,
-        phoneNumber: p.phone_number || '', // Critical fallback
-        role: p.role as UserRole,
-        status: p.status as UserStatus,
+        phoneNumber: p.phone_number || '',
+        role: (p.role ? p.role.toUpperCase() : UserRole.STUDENT) as UserRole,
+        status: (p.status ? p.status.toUpperCase() : UserStatus.ACTIVE) as UserStatus,
         avatar: p.avatar || '',
         joinedAt: p.joined_at,
-        password: p.password || ''
+        password: p.password || '',
+        gender: p.gender,
+        birthdate: p.birthdate,
+        division: p.division,
+        district: p.district,
+        work: p.work,
+        organization: p.organization
       }));
 
       const mergedUsers = [...INITIAL_USERS];
@@ -137,7 +151,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         totalQuestions: e.total_questions,
         questionIds: e.question_ids,
         passPercentage: e.pass_percentage,
-        marksPerQuestion: e.marks_per_question || 1.0, // Added
+        marksPerQuestion: e.marks_per_question || 1.0,
         negativeMarking: e.negative_marking || 0.0,
         isEnabled: e.is_enabled,
         difficulty: e.difficulty as Difficulty,
@@ -165,6 +179,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isRead: n.is_read,
         createdAt: n.created_at
       })));
+      if (inqs) setInquiries(inqs);
       if (stngs?.settings) setSettings(stngs.settings);
     } catch (err) {
       console.error('Data Sync Error:', err);
@@ -177,14 +192,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fetchData();
   }, []);
 
+  const refreshInquiries = async () => {
+    const { data } = await BackendAPI.getInquiries();
+    if (data) setInquiries(data);
+  };
+
   const updateUser = async (updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    if (currentUser?.id === updatedUser.id) setCurrentUser(updatedUser);
-    const { error } = await BackendAPI.upsertProfile(updatedUser);
-    if (error) {
-      console.error('Persistence Failure:', error);
-      throw error;
-    }
+    const normalized = {
+      ...updatedUser,
+      role: updatedUser.role.toUpperCase() as UserRole,
+      status: updatedUser.status.toUpperCase() as UserStatus
+    };
+    setUsers(prev => prev.map(u => u.id === normalized.id ? normalized : u));
+    if (currentUser?.id === normalized.id) setCurrentUser(normalized);
+    await BackendAPI.upsertProfile(normalized);
   };
 
   const deleteUser = async (userId: string) => {
@@ -230,6 +251,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteQuestion = async (questionId: string) => {
     setQuestions(prev => prev.filter(q => q.id !== questionId));
     await BackendAPI.deleteQuestion(questionId);
+  };
+
+  const updateInquiryStatus = async (id: string, status: InquiryStatus) => {
+    setInquiries(prev => prev.map(i => i.id === id ? { ...i, status } : i));
+    await BackendAPI.updateInquiryStatus(id, status);
+  };
+
+  const deleteInquiry = async (id: string) => {
+    setInquiries(prev => prev.filter(i => i.id !== id));
+    await BackendAPI.deleteInquiry(id);
   };
 
   const saveResult = async (res: ExamResult, studentAnswers?: Record<string, number>) => {
@@ -319,6 +350,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       exams, setExams,
       results, setResults,
       notifications, setNotifications,
+      inquiries, setInquiries,
       settings, setSettings,
       updateUser, deleteUser,
       upsertExam, deleteExam,
@@ -328,7 +360,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateSettings,
       broadcastToStudents,
       markNotificationRead,
-      logout, importBackup, isLoading
+      updateInquiryStatus,
+      deleteInquiry,
+      logout, importBackup, isLoading,
+      refreshInquiries
     }}>
       {children}
     </AppContext.Provider>

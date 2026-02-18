@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../AppContext';
 import { Exam, MCQ, ExamResult } from '../types';
 import { 
@@ -6,23 +6,21 @@ import {
   AlertCircle, 
   ChevronLeft, 
   ChevronRight, 
-  Check, 
   BookOpen, 
   Layers, 
   Menu, 
   X, 
   ShieldCheck,
-  UserCheck,
-  Eye,
   ShieldAlert,
-  Activity
+  Activity,
+  CheckCircle2
 } from 'lucide-react';
 
 interface ExamSessionProps {
   exam: Exam;
   onComplete: (result: ExamResult) => void;
   onCancel: () => void;
-  isSandbox?: boolean; // New prop for preview mode
+  isSandbox?: boolean;
 }
 
 const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, isSandbox = false }) => {
@@ -32,7 +30,6 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
   const [timeLeft, setTimeLeft] = useState(exam.durationMinutes * 60);
   const [examQuestions, setExamQuestions] = useState<MCQ[]>([]);
   const [isNavOpen, setIsNavOpen] = useState(false);
-  const [sessionStatus, setSessionStatus] = useState(isSandbox ? 'Simulation Active' : 'Secure Session Active');
 
   useEffect(() => {
     let selected: MCQ[] = [];
@@ -50,7 +47,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
 
   const finishExam = useCallback(() => {
     if (isSandbox) {
-      onCancel(); // Just exit simulation
+      onCancel();
       return;
     }
     if (!currentUser) return;
@@ -66,11 +63,8 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
 
     const marksPerQ = exam.marksPerQuestion || 1.0;
     const penaltyPerQ = exam.negativeMarking || 0.0;
-    
-    // Total Score = (Correct Answers * Marks Per Correct) - (Wrong Answers * Penalty)
     const rawScore = (correctCount * marksPerQ) - (wrongCount * penaltyPerQ);
     const score = Math.max(0, rawScore);
-    
     const totalPossibleMarks = examQuestions.length * marksPerQ;
     const percentage = totalPossibleMarks > 0 ? (score / totalPossibleMarks) * 100 : 0;
     const status = percentage >= exam.passPercentage ? 'PASS' : 'FAIL';
@@ -80,7 +74,7 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
       studentId: currentUser.id,
       examId: exam.id,
       score,
-      totalMarks: Math.round(totalPossibleMarks), // Representing the 'max marks' scale
+      totalMarks: Math.round(totalPossibleMarks),
       correctAnswers: correctCount,
       wrongAnswers: wrongCount,
       timeTakenSeconds: (exam.durationMinutes * 60) - timeLeft,
@@ -103,11 +97,11 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
   };
 
   if (examQuestions.length === 0) return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-white">
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-white text-center">
       <AlertCircle size={48} className="text-amber-500 mb-4" />
-      <h3 className="text-xl font-black text-center">Registry Deficit</h3>
-      <p className="text-slate-500 text-sm text-center mt-2">Insufficient knowledge fragments to initiate session.</p>
-      <button onClick={onCancel} className="mt-8 px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px]">Exit Interface</button>
+      <h3 className="text-xl font-black">Registry Deficit</h3>
+      <p className="text-slate-500 text-sm mt-2">Insufficient questions to initiate session.</p>
+      <button onClick={onCancel} className="mt-8 px-8 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px]">Exit Interface</button>
     </div>
   );
 
@@ -115,47 +109,26 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white">
-      <div className="p-4 md:p-6 border-b border-slate-100">
-        <div className="relative overflow-hidden rounded-[1.5rem] bg-slate-900 aspect-video mb-3 md:mb-4 shadow-xl border-2 border-slate-800 flex items-center justify-center">
-          <div className="text-center p-4">
-            {isSandbox ? (
-              <>
-                <ShieldAlert className="text-indigo-400 mx-auto mb-2" size={32} />
-                <span className="text-[8px] font-black text-indigo-200 uppercase tracking-widest block">Sandbox Environment</span>
-                <span className="text-[7px] text-indigo-400/60 uppercase block">Local Data Only</span>
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="text-emerald-400 mx-auto mb-2" size={32} />
-                <span className="text-[8px] font-black text-emerald-200 uppercase tracking-widest block">Secure Environment</span>
-                <span className="text-[7px] text-emerald-400/60 uppercase block">Session Encrypted</span>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center justify-between px-1">
-           <div className="flex flex-col">
-              <span className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest">Protocol status</span>
-              <span className={`text-[9px] md:text-[10px] font-black uppercase ${isSandbox ? 'text-indigo-600' : 'text-emerald-600'}`}>
-                {sessionStatus}
-              </span>
-           </div>
+      <div className="p-4 border-b border-slate-100">
+        <div className="bg-slate-900 rounded-2xl aspect-video mb-4 flex flex-col items-center justify-center text-center p-4">
+          {isSandbox ? <ShieldAlert className="text-indigo-400 mb-2" size={32} /> : <ShieldCheck className="text-emerald-400 mb-2" size={32} />}
+          <span className="text-[9px] font-black uppercase tracking-widest text-white">{isSandbox ? 'Sandbox Environment' : 'Secure Session Active'}</span>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-8">
+      <div className="flex-1 overflow-y-auto p-4 space-y-8">
         <div>
-          <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+          <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
             <Layers size={14} className="text-indigo-600" /> MATRIX NODE
           </h4>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-1.5">
             {examQuestions.map((q, i) => (
               <button
                 key={q.id}
                 onClick={() => { setCurrentIdx(i); setIsNavOpen(false); }}
                 className={`
-                  h-9 md:h-11 rounded-lg flex items-center justify-center font-black transition-all text-[10px] border-2
-                  ${currentIdx === i ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : (answers[q.id] !== undefined ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-400 border-slate-50 hover:border-slate-200')}
+                  h-10 rounded-lg flex items-center justify-center font-black transition-all text-[10px] border-2
+                  ${currentIdx === i ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : (answers[q.id] !== undefined ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-400 border-slate-50')}
                 `}
               >
                 {i + 1}
@@ -164,21 +137,13 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
           </div>
         </div>
 
-        <div>
-           <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
-            <Activity size={14} className="text-indigo-600" /> PROGRESS
-          </h4>
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-[8px] font-black text-slate-400 uppercase">Completion</span>
-              <span className="text-[10px] font-black text-slate-800">{Math.round((Object.keys(answers).length / examQuestions.length) * 100)}%</span>
-            </div>
-            <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-               <div 
-                 className="h-full bg-indigo-600 transition-all duration-500" 
-                 style={{ width: `${(Object.keys(answers).length / examQuestions.length) * 100}%` }}
-               />
-            </div>
+        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[8px] font-black text-slate-400 uppercase">Progress</span>
+            <span className="text-[10px] font-black text-slate-800">{Math.round((Object.keys(answers).length / examQuestions.length) * 100)}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+             <div className="h-full bg-indigo-600 transition-all duration-500" style={{ width: `${(Object.keys(answers).length / examQuestions.length) * 100}%` }} />
           </div>
         </div>
       </div>
@@ -187,47 +152,44 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
 
   return (
     <div className="fixed inset-0 bg-slate-50 z-[150] flex flex-col font-sans overflow-hidden">
-      {isSandbox && (
-        <div className="bg-indigo-600 text-white py-1.5 text-center font-black uppercase tracking-[0.5em] text-[8px] relative z-[160]">
-          Simulation Mode: Data Persistence Disabled
-        </div>
-      )}
-      <div className="h-16 md:h-24 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-10 shadow-sm shrink-0">
-        <div className="flex items-center gap-3 md:gap-5 min-w-0">
-          <div className="bg-indigo-600 text-white p-2 rounded-lg md:rounded-xl shrink-0">
-            <BookOpen size={20} className="md:w-6 md:h-6" />
+      <header className="h-16 md:h-24 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-10 shadow-sm shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="bg-indigo-600 text-white p-2 rounded-lg shrink-0">
+            <BookOpen size={20} />
           </div>
           <div className="min-w-0">
-            <h2 className="text-xs md:text-xl font-black text-slate-900 truncate tracking-tight">{exam.title}</h2>
-            <p className="text-[7px] md:text-xs text-slate-400 font-black uppercase tracking-widest mt-0.5">Attempt: {currentIdx + 1}/{examQuestions.length}</p>
+            <h2 className="text-xs md:text-lg font-black text-slate-900 truncate tracking-tight">{exam.title}</h2>
+            <p className="text-[8px] md:text-xs text-slate-400 font-bold uppercase mt-0.5">Attempt: {currentIdx + 1}/{examQuestions.length}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-6">
-          <div className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-1.5 md:py-2.5 rounded-full font-mono font-black text-xs md:text-lg ${timeLeft < 60 ? 'bg-red-50 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-700'}`}>
-            <Clock size={16} className="md:w-5 md:h-5" />
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono font-black text-xs md:text-base ${timeLeft < 60 ? 'bg-red-50 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-700'}`}>
+            <Clock size={14} />
             <span>{formatTime(timeLeft)}</span>
           </div>
           <button onClick={() => setIsNavOpen(true)} className="p-2 lg:hidden bg-slate-100 text-slate-600 rounded-lg"><Menu size={20} /></button>
         </div>
-      </div>
+      </header>
 
       <div className="flex-1 flex overflow-hidden relative">
         <aside className="hidden lg:block w-72 border-r border-slate-200"><SidebarContent /></aside>
 
-        {isNavOpen && <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[160] lg:hidden" onClick={() => setIsNavOpen(false)} />}
+        {isNavOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[160] lg:hidden" onClick={() => setIsNavOpen(false)} />
+        )}
         <div className={`fixed top-0 bottom-0 left-0 w-72 bg-white z-[170] shadow-2xl transition-transform duration-300 lg:hidden ${isNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex justify-end p-4"><button onClick={() => setIsNavOpen(false)} className="p-2 text-slate-400"><X size={24} /></button></div>
           <SidebarContent />
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-slate-100/30 p-4 md:p-8 lg:p-16">
-          <div className="max-w-3xl mx-auto">
-            <div className="bg-white rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-12 lg:p-16 shadow-xl border border-slate-200">
+        <div className="flex-1 overflow-y-auto bg-slate-100/30 p-4 md:p-12">
+          <div className="max-w-3xl mx-auto h-full flex flex-col">
+            <div className="bg-white rounded-[1.5rem] md:rounded-[3rem] p-6 md:p-14 shadow-xl border border-slate-200 flex-1 flex flex-col justify-center">
               <div className="mb-8 md:mb-12">
-                <div className="flex items-center justify-between mb-6">
-                  <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-indigo-100">FRAGMENT {currentIdx + 1}</span>
-                  <span className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">{currentQ.difficulty} LVL</span>
+                <div className="flex items-center justify-between mb-4 md:mb-8">
+                  <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-indigo-100">Fragment {currentIdx + 1}</span>
+                  <span className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">{currentQ.difficulty} LEVEL</span>
                 </div>
                 <h3 className="text-lg md:text-3xl font-black text-slate-900 leading-tight tracking-tight">
                   {currentQ.questionText}
@@ -239,31 +201,31 @@ const ExamSession: React.FC<ExamSessionProps> = ({ exam, onComplete, onCancel, i
                   <button
                     key={i}
                     onClick={() => setAnswers({ ...answers, [currentQ.id]: i })}
-                    className={`w-full p-4 md:p-6 rounded-xl md:rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${answers[currentQ.id] === i ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-50 bg-slate-50 hover:bg-white hover:border-indigo-100'}`}
+                    className={`w-full p-4 md:p-6 rounded-xl md:rounded-2xl border-2 text-left transition-all flex items-center gap-4 group ${answers[currentQ.id] === i ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-50 bg-slate-50 hover:bg-white hover:border-indigo-100'}`}
                   >
-                    <div className="flex items-center gap-4 md:gap-6 min-w-0">
-                      <span className={`w-8 h-8 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center font-black text-sm md:text-xl shrink-0 ${answers[currentQ.id] === i ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 border border-slate-100'}`}>{String.fromCharCode(65 + i)}</span>
-                      <span className="text-sm md:text-lg font-bold text-slate-700">{option}</span>
-                    </div>
+                    <span className={`w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center font-black text-xs md:text-lg shrink-0 ${answers[currentQ.id] === i ? 'bg-indigo-600 text-white' : 'bg-white text-slate-400 border border-slate-100'}`}>{String.fromCharCode(65 + i)}</span>
+                    <span className="text-sm md:text-lg font-bold text-slate-700">{option}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="mt-8 flex gap-4">
+            <div className="mt-6 md:mt-10 flex gap-3 md:gap-6 pb-4">
               <button
                 disabled={currentIdx === 0}
                 onClick={() => setCurrentIdx(prev => prev - 1)}
-                className="flex-1 py-4 bg-white border border-slate-200 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 disabled:opacity-30"
+                className="flex-1 py-4 md:py-6 bg-white border border-slate-200 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 disabled:opacity-30 flex items-center justify-center gap-2"
               >
-                Back
+                <ChevronLeft size={16} /> Back
               </button>
               {currentIdx === examQuestions.length - 1 ? (
-                <button onClick={() => {if(confirm(isSandbox ? 'Exit simulation?' : 'Finalize session?')) finishExam();}} className="flex-[2] py-4 bg-emerald-600 text-white rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100">
-                  {isSandbox ? 'End Simulation' : 'Finalize Session'}
+                <button onClick={() => {if(confirm('Finalize session?')) finishExam();}} className="flex-[2] py-4 md:py-6 bg-emerald-600 text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
+                  <CheckCircle2 size={16} /> Finish
                 </button>
               ) : (
-                <button onClick={() => setCurrentIdx(prev => prev + 1)} className="flex-[2] py-4 bg-indigo-600 text-white rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100">Next Node</button>
+                <button onClick={() => setCurrentIdx(prev => prev + 1)} className="flex-[2] py-4 md:py-6 bg-indigo-600 text-white rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
+                  Next <ChevronRight size={16} />
+                </button>
               )}
             </div>
           </div>

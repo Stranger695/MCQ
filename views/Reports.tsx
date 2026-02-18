@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { useApp } from '../AppContext';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar, Cell } from 'recharts';
@@ -83,7 +82,7 @@ export const Reports: React.FC = () => {
         <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center gap-4 text-amber-500 mb-6">
             <Trophy size={28} />
-            <span className="text-xs font-black uppercase tracking-widest">Success Rate</span>
+            <span className="text-xs font-black uppercase tracking-widest">Success Rates</span>
           </div>
           <p className="text-5xl font-black text-slate-800">{stats.passRate}%</p>
         </div>

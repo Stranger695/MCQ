@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../AppContext';
-import { Exam, MCQ, ExamResult, Difficulty, QuestionStatus } from '../types';
+import { Exam, MCQ, ExamResult, Difficulty, QuestionStatus, UserStatus } from '../types';
 import { 
   Plus, 
   Edit2, 
@@ -28,7 +28,8 @@ import {
   ClipboardCheck,
   Zap,
   Coins,
-  ArrowLeft
+  ArrowLeft,
+  Lock
 } from 'lucide-react';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
@@ -49,6 +50,8 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
     examId: '',
     examTitle: ''
   });
+
+  const isInactive = currentUser?.status === UserStatus.INACTIVE;
 
   const myExams = useMemo(() => {
     return exams.filter(e => e.authorId === currentUser?.id);
@@ -96,6 +99,7 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
   };
 
   const openModal = (exam: Exam | null = null) => {
+    if (isInactive) return;
     setQSearchTerm('');
     setIsPreviewActive(false);
     if (exam) {
@@ -149,10 +153,12 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
   };
 
   const toggleStatus = (exam: Exam) => {
+    if (isInactive) return;
     upsertExam({ ...exam, isEnabled: !exam.isEnabled });
   };
 
   const initiateDelete = (exam: Exam) => {
+    if (isInactive) return;
     setDeleteModal({
       isOpen: true,
       examId: exam.id,
@@ -355,10 +361,15 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
           <p className="text-slate-500 text-base mt-2 font-medium">Manage and audit knowledge assessments authored by you.</p>
         </div>
         <button 
+          disabled={isInactive}
           onClick={() => openModal()}
-          className="w-full md:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95"
+          className={`w-full md:w-auto flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl active:scale-95 ${
+            isInactive 
+            ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300' 
+            : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-100'
+          }`}
         >
-          <Plus size={20} /> Deploy New Cluster
+          {isInactive ? <Lock size={20} /> : <Plus size={20} />} Deploy New Cluster
         </button>
       </div>
 
@@ -386,8 +397,9 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
                     </span>
                   </div>
                   <button 
+                    disabled={isInactive}
                     onClick={() => toggleStatus(exam)}
-                    className={`p-3 rounded-xl transition-all shadow-sm ${exam.isEnabled ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'}`}
+                    className={`p-3 rounded-xl transition-all shadow-sm ${exam.isEnabled ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'} ${isInactive ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {exam.isEnabled ? <Play size={20} /> : <Pause size={20} />}
                   </button>
@@ -443,14 +455,16 @@ export const AuthorExamManagement: React.FC<AuthorExamManagementProps> = ({ onLa
                   <Activity size={18} /> Analytics
                 </button>
                 <button 
+                  disabled={isInactive}
                   onClick={() => openModal(exam)}
-                  className="p-4 text-slate-400 bg-white border border-slate-100 rounded-2xl hover:text-indigo-600 transition-all shadow-sm"
+                  className={`p-4 bg-white border border-slate-100 rounded-2xl transition-all shadow-sm ${isInactive ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-indigo-600'}`}
                 >
                   <Edit2 size={18} />
                 </button>
                 <button 
+                  disabled={isInactive}
                   onClick={() => initiateDelete(exam)}
-                  className="p-4 text-slate-400 bg-white border border-slate-100 rounded-2xl hover:text-red-600 transition-all shadow-sm"
+                  className={`p-4 bg-white border border-slate-100 rounded-2xl transition-all shadow-sm ${isInactive ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-red-600'}`}
                 >
                   <Trash2 size={18} />
                 </button>

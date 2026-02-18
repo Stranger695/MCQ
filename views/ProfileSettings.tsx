@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useApp } from '../AppContext';
-import { User } from '../types';
+import { User, Gender } from '../types';
 import { 
   User as UserIcon, 
   Mail, 
@@ -15,8 +15,14 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
-  ArrowLeft
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Briefcase,
+  Building2,
+  Users
 } from 'lucide-react';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { currentUser, updateUser } = useApp();
@@ -26,6 +32,7 @@ export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) =>
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'SUCCESS' | 'ERROR' } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,8 +74,24 @@ export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) =>
     }
   };
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
+  const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Initial validation check before manifesting the confirmation node
+    if (password && password !== confirmPassword) {
+      setMessage({ text: 'Credential mismatch: Passwords do not align.', type: 'ERROR' });
+      return;
+    }
+    
+    if (password && passwordStrength < 3) {
+      setMessage({ text: 'Security failure: Complexity requirement not satisfied.', type: 'ERROR' });
+      return;
+    }
+
+    setIsConfirmModalOpen(true);
+  };
+
+  const executeProfileUpdate = async () => {
     setIsProcessing(true);
     setMessage(null);
 
@@ -76,12 +99,6 @@ export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) =>
       const updatedUser: User = { ...formData };
       
       if (password) {
-        if (password !== confirmPassword) {
-          throw new Error("Credential mismatch: Passwords do not align.");
-        }
-        if (passwordStrength < 3) {
-          throw new Error("Security failure: Complexity requirement not satisfied.");
-        }
         updatedUser.password = password;
       }
 
@@ -90,11 +107,13 @@ export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) =>
       setPassword('');
       setConfirmPassword('');
       
+      // Delay navigation to allow user to see success state
       setTimeout(onBack, 2000);
     } catch (err: any) {
       setMessage({ text: err.message || 'Synchronization failed.', type: 'ERROR' });
     } finally {
       setIsProcessing(false);
+      setIsConfirmModalOpen(false);
     }
   };
 
@@ -107,10 +126,21 @@ export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+      <DeleteConfirmationModal 
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={executeProfileUpdate}
+        title="Confirm Identity Update"
+        message="You are about to synchronize modified identity parameters with the global registry. This operation will update your core identification and access credentials."
+        confirmString="UPDATE"
+        variant="WARNING"
+      />
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
         <div className="flex items-center gap-6">
           <button 
             onClick={onBack}
+            type="button"
             className="p-4 bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 rounded-2xl transition-all shadow-sm active:scale-95"
           >
             <ArrowLeft size={24} />
@@ -129,7 +159,7 @@ export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) =>
         </div>
       )}
 
-      <form onSubmit={handleUpdateProfile} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <form onSubmit={handleUpdateSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <div className="lg:col-span-1 space-y-8">
           <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm text-center">
             <div className="relative w-40 h-40 md:w-52 md:h-52 mx-auto mb-8 group">
@@ -182,6 +212,7 @@ export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) =>
         </div>
 
         <div className="lg:col-span-2 space-y-10">
+          {/* Section 1: Basic Identity */}
           <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
             <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] flex items-center gap-4">
               <UserIcon size={20} className="text-indigo-600" /> Personal Identity
@@ -208,6 +239,98 @@ export const ProfileSettings: React.FC<{ onBack: () => void }> = ({ onBack }) =>
                     className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:bg-white focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black" 
                     value={formData.username || ''} 
                     onChange={e => setFormData({ ...formData, username: e.target.value.toLowerCase().trim() })} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <div className="space-y-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Gender</label>
+                <div className="relative group">
+                  <Users className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={18} />
+                  <select 
+                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:bg-white focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black appearance-none cursor-pointer"
+                    value={formData.gender || ''}
+                    onChange={e => setFormData({ ...formData, gender: e.target.value as Gender })}
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="OTHER">Other</option>
+                    <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Date of Birth</label>
+                <div className="relative group">
+                  <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={18} />
+                  <input 
+                    type="date"
+                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:bg-white focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black" 
+                    value={formData.birthdate || ''} 
+                    onChange={e => setFormData({ ...formData, birthdate: e.target.value })} 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Geographic & Professional */}
+          <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.4em] flex items-center gap-4">
+              <MapPin size={20} className="text-indigo-600" /> Geography & Work
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Division</label>
+                <div className="relative group">
+                  <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={18} />
+                  <input 
+                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:bg-white focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black" 
+                    placeholder="e.g. Dhaka, Chittagong"
+                    value={formData.division || ''} 
+                    onChange={e => setFormData({ ...formData, division: e.target.value })} 
+                  />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">District</label>
+                <div className="relative group">
+                  <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={18} />
+                  <input 
+                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:bg-white focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black" 
+                    placeholder="e.g. Gazipur, Cumilla"
+                    value={formData.district || ''} 
+                    onChange={e => setFormData({ ...formData, district: e.target.value })} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Work / Position</label>
+                <div className="relative group">
+                  <Briefcase className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={18} />
+                  <input 
+                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:bg-white focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black" 
+                    placeholder="e.g. Software Engineer, Student"
+                    value={formData.work || ''} 
+                    onChange={e => setFormData({ ...formData, work: e.target.value })} 
+                  />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Organization</label>
+                <div className="relative group">
+                  <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition-colors" size={18} />
+                  <input 
+                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:bg-white focus:ring-8 focus:ring-indigo-50 focus:border-indigo-600 transition-all font-black" 
+                    placeholder="e.g. University of Dhaka, Tech Corp"
+                    value={formData.organization || ''} 
+                    onChange={e => setFormData({ ...formData, organization: e.target.value })} 
                   />
                 </div>
               </div>

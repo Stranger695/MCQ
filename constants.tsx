@@ -1,4 +1,3 @@
-
 import { UserRole, Difficulty, QuestionStatus, UserStatus, SiteSettings, Exam } from './types';
 
 export const INITIAL_USERS = [
@@ -68,58 +67,6 @@ export const INITIAL_QUESTIONS = [
     difficulty: Difficulty.MEDIUM,
     status: QuestionStatus.APPROVED,
     createdAt: new Date().toISOString()
-  },
-  {
-    id: 'q3',
-    authorId: 'u3',
-    authorName: 'Author',
-    categoryId: 'c2',
-    questionText: 'What is the value of Pi to two decimal places?',
-    options: ['3.12', '3.14', '3.16', '3.18'],
-    correctOptionIndex: 1,
-    explanation: 'Pi is approximately 3.14159...',
-    difficulty: Difficulty.EASY,
-    status: QuestionStatus.APPROVED,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'q4',
-    authorId: 'u3',
-    authorName: 'Author',
-    categoryId: 'c2',
-    questionText: 'Which of these is a prime number?',
-    options: ['4', '6', '9', '11'],
-    correctOptionIndex: 3,
-    explanation: '11 is only divisible by 1 and itself.',
-    difficulty: Difficulty.MEDIUM,
-    status: QuestionStatus.PENDING,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'q5',
-    authorId: 'u3',
-    authorName: 'Author',
-    categoryId: 'c1',
-    questionText: 'What is the time complexity of binary search?',
-    options: ['O(n)', 'O(log n)', 'O(n^2)', 'O(1)'],
-    correctOptionIndex: 1,
-    explanation: 'Binary search halves the search space in each step.',
-    difficulty: Difficulty.HARD,
-    status: QuestionStatus.APPROVED,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'q6',
-    authorId: 'u3',
-    authorName: 'Author',
-    categoryId: 'c3',
-    questionText: 'Who was the first person to walk on the moon?',
-    options: ['Buzz Aldrin', 'Neil Armstrong', 'Yuri Gagarin', 'Michael Collins'],
-    correctOptionIndex: 1,
-    explanation: 'Neil Armstrong walked on the moon in 1969.',
-    difficulty: Difficulty.EASY,
-    status: QuestionStatus.REJECTED,
-    createdAt: new Date().toISOString()
   }
 ];
 
@@ -134,7 +81,6 @@ export const INITIAL_EXAMS: Exam[] = [
     totalQuestions: 2,
     questionIds: ['q1', 'q2'],
     passPercentage: 50,
-    // Fix: Added missing marksPerQuestion property which is required in the Exam interface
     marksPerQuestion: 1.0,
     negativeMarking: 0.25,
     difficulty: Difficulty.EASY,

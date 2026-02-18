@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-import { User, MCQ, Exam, ExamResult, SiteSettings, UserRole, Category } from '../types';
+import { User, MCQ, Exam, ExamResult, SiteSettings, UserRole, Category, Inquiry, InquiryStatus } from '../types';
 
 const supabaseUrl = 'https://bvjzuwulwdqubzifpeyo.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2anp1d3Vsd2RxdWJ6aWZwZXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExMzc1NDgsImV4cCI6MjA4NjcxMzU0OH0.rivYIgGP4C9B4aDY9jeHizHgfS_8EiwbBkZZGVUqJ50';
@@ -23,12 +23,29 @@ export const BackendAPI = {
       status: user.status,
       avatar: user.avatar || null,
       joined_at: user.joinedAt,
-      password: user.password || null
+      password: user.password || null,
+      gender: user.gender || null,
+      birthdate: user.birthdate || null,
+      division: user.division || null,
+      district: user.district || null,
+      work: user.work || null,
+      organization: user.organization || null
     };
     return await supabase.from('profiles').upsert(payload);
   },
   async deleteProfile(userId: string) {
     return await supabase.from('profiles').delete().eq('id', userId);
+  },
+
+  // Inquiries (Messages)
+  async getInquiries() {
+    return await supabase.from('inquiries').select('*').order('created_at', { ascending: false });
+  },
+  async updateInquiryStatus(id: string, status: InquiryStatus) {
+    return await supabase.from('inquiries').update({ status }).eq('id', id);
+  },
+  async deleteInquiry(id: string) {
+    return await supabase.from('inquiries').delete().eq('id', id);
   },
 
   // Categories
@@ -61,7 +78,7 @@ export const BackendAPI = {
       total_questions: exam.totalQuestions,
       question_ids: exam.questionIds,
       pass_percentage: exam.passPercentage,
-      marks_per_question: exam.marksPerQuestion, // Added
+      marks_per_question: exam.marksPerQuestion,
       negative_marking: exam.negativeMarking,
       is_enabled: exam.isEnabled,
       difficulty: exam.difficulty,
@@ -142,16 +159,6 @@ export const BackendAPI = {
   },
 
   // Stats & Settings
-  async getGlobalStats(userId: string) {
-    try {
-      const response = await fetch(`${BACKEND_URL}/reports/summary`, {
-        headers: { 'x-user-id': userId }
-      });
-      return await response.json();
-    } catch (err) {
-      return null;
-    }
-  },
   async getSettings() {
     return await supabase.from('site_settings').select('settings').single();
   },

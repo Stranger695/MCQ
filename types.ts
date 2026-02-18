@@ -23,6 +23,25 @@ export enum Difficulty {
   HARD = 'HARD'
 }
 
+export type Gender = 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
+
+export enum InquiryStatus {
+  NEW = 'NEW',
+  READ = 'READ',
+  ARCHIVED = 'ARCHIVED'
+}
+
+export interface Inquiry {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: InquiryStatus;
+  created_at: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -33,7 +52,14 @@ export interface User {
   status: UserStatus;
   avatar?: string;
   joinedAt: string;
-  password?: string; // Added to support credential management
+  password?: string;
+  // Expanded Profile Fields
+  gender?: Gender;
+  birthdate?: string;
+  division?: string;
+  district?: string;
+  work?: string;
+  organization?: string;
 }
 
 export interface MCQ {
@@ -66,8 +92,8 @@ export interface Exam {
   totalQuestions: number;
   questionIds?: string[];
   passPercentage: number;
-  marksPerQuestion: number; // Weight for correct answers
-  negativeMarking: number;   // Penalty for wrong answers
+  marksPerQuestion: number; 
+  negativeMarking: number;   
   isEnabled: boolean;
   difficulty?: Difficulty;
   createdAt: string;
